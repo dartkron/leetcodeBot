@@ -1,8 +1,8 @@
-from typing import Annotated
-import pytest
 
 from datetime import datetime
 from unittest.mock import patch, call
+
+import pytest
 
 from lib.common import BotLeetCodeTask, removeUnsupportedTags, replaceImgWithA, getTaskId, addTaskLinkToContent, fixTagsAndImages
 
@@ -37,19 +37,20 @@ def test_removeUnsupportedTags(pattern: str, result: str) -> None:
 
 
 @pytest.mark.parametrize('pattern, result', [
-    ('test<img src="http://mytest.com/test.png"/>test<img src="http://anothermytest.org/pic.jpg"/>test', 'test\n<a href="http://mytest.com/test.png">Picture 0</a>test\n<a href="http://anothermytest.org/pic.jpg">Picture 1</a>test'),
+    ('test<img src="http://mytest.com/test.png"/>test<img src="http://anothermytest.org/pic.jpg"/>test',
+    'test\n<a href="http://mytest.com/test.png">Picture 0</a>test\n<a href="http://anothermytest.org/pic.jpg">Picture 1</a>test'),
 ])
 def test_replaceImgWithA(pattern: str, result: str) -> None:
     assert(replaceImgWithA(pattern) == result)
 
 
-@pytest.mark.parametrize('date, id', [
+@pytest.mark.parametrize('date, dateId', [
     (datetime(year=1970, month=1, day=1), 19700101),
     (datetime(year=2021, month=12, day=31), 20211231),
     (datetime(year=2020, month=2, day=29), 20200229),
 ])
-def test_getTaskId(date: datetime, id:int):
-    assert(getTaskId(date) == id)
+def test_getTaskId(date: datetime, dateId:int):
+    assert(getTaskId(date) == dateId)
 
 
 @pytest.mark.parametrize('content, questionId, result', [

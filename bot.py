@@ -23,7 +23,7 @@ def main() -> None:
     print(getFixedTaskForDate(targetDate))
 
 
-def handler(event, context):
+def handler(event, _):
     body = json.loads(event['body']) if event['body'] else {'message': {'chat': {'id': 0}}}
     targetDate = datetime.now(tz=timezone('US/Pacific'))
     storedTask = bot_ydb.getTaskOfTheDay(targetDate)

@@ -1,10 +1,10 @@
-import requests
-
 from datetime import datetime
 from typing import Dict, Any
 
+import requests
 
-class LeetCodeTask:
+
+class LeetCodeTask: # pylint: disable=too-few-public-methods
     def __init__(self, questionId: int = 0, title: str = '', content: str = '') -> None:
         self.QuestionId = questionId
         self.Title = title
@@ -68,8 +68,7 @@ class Error(Exception):
     pass
 
 class NonPredictableError(Error):
-    def __init__(self, message):
-        self.message = message
+    pass
 
 
 def getDailyTaskId(targetDate: datetime) -> int:
@@ -79,7 +78,7 @@ def getDailyTaskId(targetDate: datetime) -> int:
     cnt = 0
     item = 0
     for chapter in range(len(js['data']['chapters'])):
-        if cnt + len(js['data']['chapters'][chapter]['items']) - 1 >= targetDate.day:
+        if cnt + len(js['data']['chapters'][chapter]['items']) - 1 >= targetDate.day: # pylint: disable=no-else-break
             item = targetDate.day - cnt
             break
         else:

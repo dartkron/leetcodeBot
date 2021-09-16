@@ -1,5 +1,7 @@
-from lib.leetcode_api import LeetCodeTask
 from datetime import datetime
+
+from lib.leetcode_api import LeetCodeTask
+
 
 class BotLeetCodeTask(LeetCodeTask):
     def __init__(self, dateId: int = 0, questionId: int = 0, title: str = '', content: str = '') -> None:

@@ -1,10 +1,13 @@
-import ydb
 import json
 import os
 
-from lib.common import BotLeetCodeTask, getTaskId
 from typing import Tuple
 from datetime import datetime
+
+import ydb
+
+from lib.common import BotLeetCodeTask, getTaskId
+
 
 DATABASE_CONNECTED = True
 
@@ -24,15 +27,14 @@ else:
         driver.wait(fail_fast=True, timeout=5)
         # Create the session pool instance to manage YDB sessions.
         pool = ydb.SessionPool(driver)
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         print(f'Error on database module inititalization:\n{e}\nAll database operations will be omitted')
         DATABASE_CONNECTED = False
 
 
-
 def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
     if not DATABASE_CONNECTED:
-         return (False, BotLeetCodeTask())
+        return (False, BotLeetCodeTask())
     dateId = getTaskId(targetDate)
     def execute_select_query(session):
         # create the transaction and execute query.
@@ -46,8 +48,8 @@ def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
 
 
 def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
-    if DATABASE_CONNECTED:
-        return
+    if not DATABASE_CONNECTED:
+        return None
     t64 = json.dumps(task.Title)
     c64 = json.dumps(task.Content)
 
