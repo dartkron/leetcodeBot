@@ -25,7 +25,7 @@ if not os.path.isfile(ARCHIVE_NAME):
     sys.exit(1)
 with open(ARCHIVE_NAME, 'rb') as f:
     content = f.read()
-
+print('Deployment started')
 createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
         function_id=currentVersion.function_id,
         runtime=currentVersion.runtime,

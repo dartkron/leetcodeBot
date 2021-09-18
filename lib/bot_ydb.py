@@ -1,12 +1,12 @@
-import json
 import os
+import json
 
 from typing import Tuple
 from datetime import datetime
 
 import ydb
 
-from lib.common import BotLeetCodeTask, getTaskId
+from lib.common import BotLeetCodeTask, getTaskId, User
 
 
 DATABASE_CONNECTED = True
@@ -38,13 +38,32 @@ def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
     dateId = getTaskId(targetDate)
     def execute_select_query(session):
         # create the transaction and execute query.
-        return session.transaction().execute(
-            f'select title, text, questionId from dailyQuestion where id = {dateId};',
+        query = '''
+        DECLARE $dateId AS Int64;
+
+        SELECT title, text, questionId
+        FROM dailyQuestion
+        WHERE id = $dateId;
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$dateId': dateId,
+            },
             commit_tx=True,
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
+
     result = pool.retry_operation_sync(execute_select_query)[0].rows
-    return (bool(len(result)), BotLeetCodeTask(dateId, result[0].questionId, result[0].title.decode('UTF-8'), result[0].text.decode('UTF-8')) if len(result)  else BotLeetCodeTask())
+    return (
+        bool(len(result)),
+        BotLeetCodeTask(
+            dateId,
+            result[0].questionId,
+            result[0].title.decode('UTF-8'),
+            result[0].text.decode('UTF-8')
+        ) if len(result) else BotLeetCodeTask(dateId)
+    )
 
 
 def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
@@ -60,3 +79,120 @@ def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
     return pool.retry_operation_sync(do_insert)
+
+
+def getUser(userId: int) -> Tuple[bool, User]:
+    if not DATABASE_CONNECTED:
+        return (False, User())
+
+    def execute_select_query(session):
+        # create the transaction and execute query.
+        query = '''
+        DECLARE $userId AS Uint64;
+
+        SELECT chat_id, firstName, lastName, username, subscribed
+        FROM users
+        WHERE id = $userId;
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$userId': userId,
+            },
+            commit_tx=True,
+            settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
+        )
+
+    result = pool.retry_operation_sync(execute_select_query)[0].rows
+    return (
+        bool(len(result)),
+        User(
+            userId,
+            result[0].chat_id,
+            result[0].username.decode('UTF-8'),
+            result[0].firstName.decode('UTF-8'),
+            result[0].lastName.decode('UTF-8'),
+            result[0].subscribed) if len(result) else User(userId)
+    )
+
+
+def saveUser(user: User) -> None:
+    if not DATABASE_CONNECTED:
+        return None
+
+    def do_insert(session):
+        # create the transaction and execute query.
+        query = '''
+        DECLARE $id AS Uint64;
+        DECLARE $chat_id AS Uint64;
+        DECLARE $firstname AS String;
+        DECLARE $lastname AS String;
+        DECLARE $username AS String;
+        DECLARE $subscribed AS Bool;
+
+        REPLACE INTO users (id, chat_id, firstName, lastName, username, subscribed)
+        VALUES ($id, $chat_id, $firstname, $lastname, $username, $subscribed);
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$id': user.UserId,
+                '$chat_id': user.ChatId,
+                '$username': user.Username.encode('UTF-8'),
+                '$firstname': user.FirstName.encode('UTF-8'),
+                '$lastname': user.LastName.encode('UTF-8'),
+                '$subscribed': user.Subscribed,
+            },
+            commit_tx=True,
+            settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
+        )
+
+    return pool.retry_operation_sync(do_insert)
+
+
+def subscribeUser(user: User) -> None:
+    if not DATABASE_CONNECTED:
+        return None
+
+    def do_update(session):
+        # create the transaction and execute query.
+        query = '''
+        DECLARE $userId AS Uint64;
+
+        UPDATE `users` set subscribed = true
+        WHERE id=$userId;
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$userId': user.UserId,
+            },
+            commit_tx=True,
+            settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
+        )
+
+    return pool.retry_operation_sync(do_update)
+
+
+def unsubscribeUser(user: User) -> None:
+    if not DATABASE_CONNECTED:
+        return None
+
+    def do_update(session):
+        # create the transaction and execute query.
+        query = '''
+        DECLARE $userId AS Uint64;
+
+        UPDATE `users` set subscribed = false
+        WHERE id=$userId;
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$userId': user.UserId,
+            },
+            commit_tx=True,
+            settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
+        )
+
+    return pool.retry_operation_sync(do_update)

@@ -15,6 +15,16 @@ class BotLeetCodeTask(LeetCodeTask):
         return f'DateId: {self.DateId}\n' + LeetCodeTask.__repr__(self)
 
 
+class User:
+    def __init__(self, userId: int = 0, chatId: int = 0, username: str = '', firstName: str = '', lastName: str = '', subscribed: bool = False):
+        self.UserId = userId
+        self.ChatId = chatId
+        self.Username = username
+        self.FirstName = firstName
+        self.LastName = lastName
+        self.Subscribed = subscribed
+
+
 def removeUnsupportedTags(s: str) -> str:
     for tag in ('<p>', '</p>','<ul>', '</ul>', '</li>', '</sup>', '<em>', '</em>', '\n\n'):
         s = s.replace(tag, '')
