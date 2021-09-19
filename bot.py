@@ -7,7 +7,7 @@ from pytz import timezone
 from lib import leetcode_api
 from lib import bot_ydb
 from lib.user_actions import startAction, stopAction
-from lib.common import BotLeetCodeTask, addTaskLinkToContent, fixTagsAndImages, getTaskId
+from lib.common import BotLeetCodeTask, fixTagsAndImages, getTaskId
 
 
 HELP_MESAGE = '''
@@ -23,7 +23,6 @@ def getFixedTaskForDate(targetDate: datetime) -> BotLeetCodeTask:
     task = BotLeetCodeTask(getTaskId(targetDate))
     task.fromLeetCodeTask(leetcode_api.getTaskOfTheDay(targetDate))
     task = fixTagsAndImages(task)
-    task = addTaskLinkToContent(task)
     return task
 
 
@@ -59,7 +58,7 @@ def serveCallback(responseBody: Dict[str, Any]) -> Dict[str,str]:
     if request['hint'] > len(task.Hints) - 1:
         response['text'] = f'There is no such hint for task {task.DateId}'
         return response
-    response['text'] = 'Hint #' + str(request['hint']) + ': ' + task.Hints[request['hint']]
+    response['text'] = 'Hint #' + str(request['hint'] + 1) + ': ' + task.Hints[request['hint']]
 
     return response
 

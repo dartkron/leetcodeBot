@@ -18,8 +18,18 @@ class BotLeetCodeTask(LeetCodeTask):
         return f'DateId: {self.DateId}\n' + LeetCodeTask.__repr__(self)
 
     def generateHintsInlineKeyboard(self) -> str:
-        listOfHints = [{'text': f'Hint {i}', 'callback_data': json.dumps({'dateId': self.DateId, 'hint': i})} for i in range(len(self.Hints))]
-        return json.dumps({'inline_keyboard': [listOfHints]})
+        listOfHints = []
+        level = []
+        for i in range(len(self.Hints)):
+            level.append({'text': f'Hint {i + 1}', 'callback_data': json.dumps({'dateId': self.DateId, 'hint': i})})
+            if len(level) == 5:
+                listOfHints.append(level.copy())
+                level = []
+        if level:
+            listOfHints.append(level.copy())
+            level = []
+        listOfHints = [[{'text': 'See task on LeetCode website', 'url': f'https://leetcode.com/explore/item/{self.QuestionId}'}]] + listOfHints
+        return json.dumps({'inline_keyboard': listOfHints})
 
 class User:
     def __init__(self, userId: int = 0, chatId: int = 0, username: str = '', firstName: str = '', lastName: str = '', subscribed: bool = False):
@@ -32,7 +42,7 @@ class User:
 
 
 def removeUnsupportedTags(s: str) -> str:
-    for tag in ('<p>', '</p>','<ul>', '</ul>', '</li>', '</sup>', '<em>', '</em>', '\n\n'):
+    for tag in ('<p>', '</p>','<ul>', '</ul>', '</li>', '</sup>', '<em>', '</em>', '\n\n', '<br>', '</br>'):
         s = s.replace(tag, '')
     s = s.replace('&nbsp;', ' ')
     s = s.replace('<sup>', '**')
@@ -62,9 +72,4 @@ def fixTagsAndImages(task: BotLeetCodeTask) -> BotLeetCodeTask:
     task.Content = replaceImgWithA(removeUnsupportedTags(task.Content))
     for i in range(len(task.Hints)):
         task.Hints[i] = replaceImgWithA(removeUnsupportedTags(task.Hints[i]))
-    return task
-
-
-def addTaskLinkToContent(task: BotLeetCodeTask) -> BotLeetCodeTask:
-    task.Content += f'\n\n\n<strong>Link to task:</strong> https://leetcode.com/explore/item/{task.QuestionId}'
     return task

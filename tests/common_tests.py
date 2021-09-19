@@ -4,7 +4,7 @@ from unittest.mock import patch, call
 
 import pytest
 
-from lib.common import BotLeetCodeTask, removeUnsupportedTags, replaceImgWithA, getTaskId, addTaskLinkToContent, fixTagsAndImages
+from lib.common import BotLeetCodeTask, removeUnsupportedTags, replaceImgWithA, getTaskId, fixTagsAndImages
 
 @pytest.mark.parametrize('pattern, result', [
     ('test', 'test'),
@@ -29,8 +29,11 @@ from lib.common import BotLeetCodeTask, removeUnsupportedTags, replaceImgWithA, 
     ('te</em>st', 'test'),
     ('t<em>e</em>st', 'test'),
     ('te\n\nst', 'test'),
-    ('t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt</strong>', 'testt — es t**te(s)ttest</strong>'),
-    ('<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n</strong>', ' —  **()</strong>'),
+    ('t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt<br>t</br>e</strong>', 'testt — es t**te(s)ttestte</strong>'),
+    ('<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n<br></br></strong>', ' —  **()</strong>'),
+    ('te<br>st', 'test'),
+    ('te</br>st', 'test'),
+    ('t<br>e</br>st', 'test'),
 ])
 def test_removeUnsupportedTags(pattern: str, result: str) -> None:
     assert(removeUnsupportedTags(pattern) == result)
@@ -52,14 +55,6 @@ def test_replaceImgWithA(pattern: str, result: str) -> None:
 def test_getTaskId(date: datetime, dateId:int):
     assert(getTaskId(date) == dateId)
 
-
-@pytest.mark.parametrize('content, questionId, result', [
-    ('', 1,'\n\n\n<strong>Link to task:</strong> https://leetcode.com/explore/item/1'),
-    ('test', 3321,'test\n\n\n<strong>Link to task:</strong> https://leetcode.com/explore/item/3321'),
-])
-def test_addTaskLinkToContent(content: str, questionId: int, result: str) -> None:
-    task = BotLeetCodeTask(0, questionId, '', content)
-    assert(addTaskLinkToContent(task).Content == result)
 
 def test_fixTagsAndImages() -> None:
     with patch('lib.common.replaceImgWithA', return_value = 'replaced A') as patched_replaceA, \
