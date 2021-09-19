@@ -2,7 +2,7 @@ import os
 import json
 from time import sleep
 
-from typing import Tuple
+from typing import Tuple, List
 from datetime import datetime
 
 import ydb
@@ -223,3 +223,23 @@ def unsubscribeUser(user: User) -> None:
         )
 
     return pool.retry_operation_sync(do_update)
+
+
+def getSubscribedUsersIds() -> List[int]:
+    if not DATABASE_CONNECTED:
+        return []
+
+    def execute_select_query(session):
+        # create the transaction and execute query.
+        query = '''
+        SELECT chat_id
+        FROM users
+        WHERE subscribed = true;
+        '''
+        return session.transaction().execute(
+            query,
+            commit_tx=True,
+            settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
+        )
+    result = pool.retry_operation_sync(execute_select_query)[0].rows
+    return [int(user.chat_id) for user in result]

@@ -64,6 +64,8 @@ jobs:
           SERVICE_ACCOUNT_ID: ${{ secrets.SERVICE_ACCOUNT_ID }}
           SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.SERVICE_ACCOUNT_PRIVATE_KEY }}
           TARGET_FUNCTION_ID: ${{ secrets.TARGET_FUNCTION_ID }}
+          REMINDER_FUNCTION_ID: ${{ secrets.REMINDER_FUNCTION_ID }}
       run: |
         zip -r bot.zip ./bot.py ./requirements.txt ./lib
+        zip -r ./reminder.zip ./requirements.txt ./reminder.py ./lib
         python ./deploy/deploy.py

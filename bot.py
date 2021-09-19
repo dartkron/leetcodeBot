@@ -2,13 +2,11 @@ import json
 from typing import Dict, Any
 
 from datetime import datetime
-from pytz import timezone
 
-from lib import leetcode_api
 from lib import bot_ydb
 from lib.user_actions import startAction, stopAction
-from lib.common import BotLeetCodeTask, fixTagsAndImages, getTaskId
-
+from lib.tasks_actions import getDailyTask
+from lib.tasks_actions import getFixedTaskForDate
 
 HELP_MESAGE = '''
 You command "{command}" isn't recognized =(
@@ -19,30 +17,12 @@ List of available commands:
 '''
 
 
-def getFixedTaskForDate(targetDate: datetime) -> BotLeetCodeTask:
-    task = BotLeetCodeTask(getTaskId(targetDate))
-    task.fromLeetCodeTask(leetcode_api.getTaskOfTheDay(targetDate))
-    task = fixTagsAndImages(task)
-    return task
-
-
 def main() -> None:
     # Uncomment for today task
     #targetDate = datetime.now(tz=timezone('US/Pacific'))
     targetDate = datetime(year=2021, month=2, day=14)
     print(f'Going to retrieve and print daily task for {targetDate}')
     print(getFixedTaskForDate(targetDate))
-
-
-def getDailyTask() -> BotLeetCodeTask:
-    targetDate = datetime.now(tz=timezone('US/Pacific'))
-    storedTask = bot_ydb.getTaskOfTheDay(targetDate)
-    if storedTask[0]:
-        task = storedTask[1]
-    else:
-        task = getFixedTaskForDate(targetDate)
-        bot_ydb.saveTaskOfTheDay(task)
-    return task
 
 
 def serveCallback(responseBody: Dict[str, Any]) -> Dict[str,str]:
@@ -70,7 +50,7 @@ def serveMessage(responseBody: Dict[str, Any]) -> Dict[str, str]:
         'text': HELP_MESAGE.format(command=command),
         'reply_markup': json.dumps({
             'keyboard': [
-                [{'text': 'getDailyTask'}],
+                [{'text': 'Get actual daily task'}],
                 [{'text': 'Subscribe'}, {'text': 'Unsubscribe'}],
             ],
             'input_field_placeholder': 'Please, use buttons below:',
@@ -78,9 +58,9 @@ def serveMessage(responseBody: Dict[str, Any]) -> Dict[str, str]:
         })
     }
 
-    if command in ('getDailyTask', '/getDailyTask'):
+    if command in ('Get actual daily task', '/getDailyTask'):
         task = getDailyTask()
-        response['text'] = f'<strong>{task.Title}</strong>\n\n{task.Content}'
+        response['text'] = task.getTaskText()
         response['reply_markup'] = task.generateHintsInlineKeyboard()
     elif command in ('Subscribe', '/Subscribe'):
         response['text'] = startAction(responseBody)

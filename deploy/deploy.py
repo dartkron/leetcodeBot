@@ -1,12 +1,17 @@
 import os
 import sys
+import logging
 
 import yandexcloud
 
 from yandex.cloud.serverless.functions.v1.function_service_pb2 import ListFunctionsVersionsRequest, CreateFunctionVersionRequest
 from yandex.cloud.serverless.functions.v1.function_service_pb2_grpc import FunctionServiceStub
 
-ARCHIVE_NAME = 'bot.zip'
+
+FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.ERROR)
+logging.info('Hello world')
+
 
 sa_key = {
     "id": os.getenv('service_account_key_id'),
@@ -15,29 +20,43 @@ sa_key = {
 }
 
 
-sdk = yandexcloud.SDK(service_account_key=sa_key)
+def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> None:
+    currentVersion = slService.ListVersions(ListFunctionsVersionsRequest(function_id=targetFunctionId, page_size=1)).versions[0]
 
-slService = sdk.client(FunctionServiceStub)
-currentVersion = slService.ListVersions(ListFunctionsVersionsRequest(function_id=os.getenv('TARGET_FUNCTION_ID'), page_size=1)).versions[0]
+    if not os.path.isfile(archiveName):
+        logging.error('Fatal error: archive %s not found', archiveName)
+        sys.exit(1)
+    with open(archiveName, 'rb') as f:
+        content = f.read()
+    logging.info('Deployment of %s started', archiveName)
+    createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
+            function_id=currentVersion.function_id,
+            runtime=currentVersion.runtime,
+            description='commit #asdfasd',
+            entrypoint=currentVersion.entrypoint,
+            resources=currentVersion.resources,
+            execution_timeout=currentVersion.execution_timeout,
+            service_account_id=currentVersion.service_account_id,
+            content=content,
+            environment={key: val for key, val in currentVersion.environment.items()},
+        ))
 
-if not os.path.isfile(ARCHIVE_NAME):
-    print(f'Fatal error: archive {ARCHIVE_NAME} not found')
-    sys.exit(1)
-with open(ARCHIVE_NAME, 'rb') as f:
-    content = f.read()
-print('Deployment started')
-createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
-        function_id=currentVersion.function_id,
-        runtime=currentVersion.runtime,
-        description='commit #asdfasd',
-        entrypoint=currentVersion.entrypoint,
-        resources=currentVersion.resources,
-        execution_timeout=currentVersion.execution_timeout,
-        service_account_id=currentVersion.service_account_id,
-        content=content,
-        environment={key: val for key, val in currentVersion.environment.items()},
-    ))
+    operationResult = sdk.wait_operation_and_get_result(createOperation, timeout=300)
 
-operationResult = sdk.wait_operation_and_get_result(createOperation, timeout=300)
+    logging.info('Deployment of %s finished', archiveName)
 
-print('Operation finished')
+
+def main() -> None:
+    logging.info('Authentication at Yandex.Cloud')
+    sdk = yandexcloud.SDK(service_account_key=sa_key)
+    logging.info('Authentication finished')
+    slService = sdk.client(FunctionServiceStub)
+    deploys = [
+        {'targetFunctionId': os.getenv('TARGET_FUNCTION_ID'), 'archiveName': 'bot.zip', 'slService': slService, 'sdk': sdk},
+        {'targetFunctionId': os.getenv('REMINDER_FUNCTION_ID'), 'archiveName': 'reminder.zip', 'slService': slService, 'sdk': sdk},
+    ]
+    for params in deploys:
+        deployFunction(**params)
+
+if __name__ == '__main__':
+    main()

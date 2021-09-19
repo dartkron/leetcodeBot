@@ -6,7 +6,7 @@ Currently status:
 Since there is generous [free tier](https://cloud.yandex.com/en/docs/billing/concepts/serverless-free-tier) and it's stable enough.
 
 ## Can use YDB for caching.
-Expect table with following structure:
+Expect following tables structure:
 ```(sql)
 CREATE TABLE `dailyQuestion`
 (
@@ -16,18 +16,31 @@ CREATE TABLE `dailyQuestion`
     `title` String,
     PRIMARY KEY (`id`)
 );
+
+CREATE TABLE `users`
+(
+    `id` Uint64,
+    `chat_id` Uint64,
+    `firstName` String,
+    `lastName` String,
+    `subscribed` Bool,
+    `username` String,
+    PRIMARY KEY (`id`)
+);
 ```
 
 Awaits `YDB_DATABASE` and `YDB_ENDPOINT` environment variables.
 __If database connection will fail or variables will not set, bot will connect LeetCode API for question data.__
 
-## Can send you today task in response on any request
+## Features
+1. Can send you today task in response on any request.
+2. Can send task hints if they isset.
+3. Subscribe/Unsubscribe buttons/commands.
+4. Once per day reminder serverless function send new task to all users who subscribed
 And it's all on current stage.
+
 Plan to add:
-1. Notification when new task is appeared.
-2. Possible hints show via button.
-3. Buttons for subscribe/unsubscribe.
-4. Possibly get authorization token from subscriber, to show progress, may be hints.
+1. Possibly get authorization token from subscriber, to show progress, may be hints.
 
 ## Using Leetcode graphQl api
 Only recieving of daily tasks coded.

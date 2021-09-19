@@ -1,9 +1,21 @@
+import logging
 from typing import List
 from datetime import datetime
+import os
 import json
+import requests
 
 from lib.leetcode_api import LeetCodeTask
 
+SENDING_URL = 'https://api.telegram.org/bot{token}/sendMessage'
+
+
+class Error(Exception):
+    pass
+
+
+class SendMessageError(Error):
+    pass
 
 
 class BotLeetCodeTask(LeetCodeTask):
@@ -16,6 +28,9 @@ class BotLeetCodeTask(LeetCodeTask):
 
     def __repr__(self) -> str:
         return f'DateId: {self.DateId}\n' + LeetCodeTask.__repr__(self)
+
+    def getTaskText(self) -> str:
+        return f'<strong>{self.Title}</strong>\n\n{self.Content}'
 
     def generateHintsInlineKeyboard(self) -> str:
         listOfHints = []
@@ -73,3 +88,45 @@ def fixTagsAndImages(task: BotLeetCodeTask) -> BotLeetCodeTask:
     for i in range(len(task.Hints)):
         task.Hints[i] = replaceImgWithA(removeUnsupportedTags(task.Hints[i]))
     return task
+
+
+def sendMessage(body: str) -> bool:
+    @retry(times=3, exceptions=Exception)
+    def sendMessageImpl():
+        r = requests.post(SENDING_URL.format(token=os.getenv('SENDING_TOKEN')), headers = {'Content-Type': 'application/json'}, json=body)
+        if r.status_code != 200 or r.json()['ok'] != True:
+            raise SendMessageError(f'Status code: {r.status_code}, response: {r.json()}')
+
+        return True
+    try:
+        sendMessageImpl()
+    except:
+        return False
+    return True
+
+
+def retry(times, exceptions):
+    """
+    Retry Decorator
+    Retries the wrapped function/method `times` times if the exceptions listed
+    in ``exceptions`` are thrown
+    :param times: The number of times to repeat the wrapped function/method
+    :type times: Int
+    :param Exceptions: Lists of exceptions that trigger a retry attempt
+    :type Exceptions: Tuple of Exceptions
+    """
+    def decorator(func):
+        def newfn(*args, **kwargs):
+            attempt = 0
+            while attempt < times:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    print(
+                        'Exception thrown when attempting to run %s, attempt '
+                        '%d of %d' % (func, attempt, times)
+                    )
+                    attempt += 1
+            return func(*args, **kwargs)
+        return newfn
+    return decorator
