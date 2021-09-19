@@ -5,12 +5,12 @@ from lib.common import User
 
 
 def getOrCreateUser(responseBody: Dict[str, Any]) -> User:
-    exist, user = bot_ydb.getUser(responseBody['message']['chat']['id'])
+    exist, user = bot_ydb.getUser(responseBody['message']['from']['id'])
     if not exist:
         user.ChatId = responseBody['message']['chat']['id']
-        user.Username = responseBody['message']['chat']['username']
-        user.FirstName = responseBody['message']['chat']['first_name']
-        user.LastName = responseBody['message']['chat']['last_name']
+        user.Username = responseBody['message']['from']['username']
+        user.FirstName = responseBody['message']['from']['first_name']
+        user.LastName = responseBody['message']['from']['last_name']
         user.Subscribed = False
         bot_ydb.saveUser(user)
     return user

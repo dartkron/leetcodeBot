@@ -1,17 +1,18 @@
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import requests
 
 
 class LeetCodeTask: # pylint: disable=too-few-public-methods
-    def __init__(self, questionId: int = 0, title: str = '', content: str = '') -> None:
+    def __init__(self, questionId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
         self.QuestionId = questionId
         self.Title = title
         self.Content = content
+        self.Hints = hints
 
     def __repr__(self) -> str:
-        return f'QuesetionId: {self.QuestionId}\nTitle: {self.Title}\nContent: {self.Content}'
+        return f'QuesetionId: {self.QuestionId}\nTitle: {self.Title}\nContent: {self.Content}\nHints: {self.Hints}'
 
 
 MONTH_NAMES = {
@@ -109,4 +110,4 @@ def getTaskOfTheDay(targetDate: datetime) -> LeetCodeTask:
     questionId = getDailyTaskId(targetDate)
     s = getQestionSlug(questionId)
     question = getQuestionDetails(s)
-    return LeetCodeTask(questionId, question['questionTitle'], question['content'])
+    return LeetCodeTask(int(questionId), question['questionTitle'], question['content'], question['hints'])

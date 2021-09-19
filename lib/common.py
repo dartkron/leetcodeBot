@@ -1,19 +1,25 @@
+from typing import List
 from datetime import datetime
+import json
 
 from lib.leetcode_api import LeetCodeTask
 
 
+
 class BotLeetCodeTask(LeetCodeTask):
-    def __init__(self, dateId: int = 0, questionId: int = 0, title: str = '', content: str = '') -> None:
+    def __init__(self, dateId: int = 0, questionId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
         self.DateId = dateId
-        LeetCodeTask.__init__(self, questionId, title, content)
+        LeetCodeTask.__init__(self, questionId, title, content, hints)
 
     def fromLeetCodeTask(self, task: LeetCodeTask):
-        LeetCodeTask.__init__(self, task.QuestionId, task.Title, task.Content)
+        LeetCodeTask.__init__(self, task.QuestionId, task.Title, task.Content, task.Hints)
 
     def __repr__(self) -> str:
         return f'DateId: {self.DateId}\n' + LeetCodeTask.__repr__(self)
 
+    def generateHintsInlineKeyboard(self) -> str:
+        listOfHints = [{'text': f'Hint {i}', 'callback_data': json.dumps({'dateId': self.DateId, 'hint': i})} for i in range(len(self.Hints))]
+        return json.dumps({'inline_keyboard': [listOfHints]})
 
 class User:
     def __init__(self, userId: int = 0, chatId: int = 0, username: str = '', firstName: str = '', lastName: str = '', subscribed: bool = False):
@@ -54,6 +60,8 @@ def getTaskId(date: datetime) -> int:
 def fixTagsAndImages(task: BotLeetCodeTask) -> BotLeetCodeTask:
     task.Title = removeUnsupportedTags(task.Title)
     task.Content = replaceImgWithA(removeUnsupportedTags(task.Content))
+    for i in range(len(task.Hints)):
+        task.Hints[i] = replaceImgWithA(removeUnsupportedTags(task.Hints[i]))
     return task
 
 

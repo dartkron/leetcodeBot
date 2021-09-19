@@ -35,13 +35,16 @@ else:
 def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
     if not DATABASE_CONNECTED:
         return (False, BotLeetCodeTask())
-    dateId = getTaskId(targetDate)
+    return getTaskById(getTaskId(targetDate))
+
+
+def getTaskById(dateId: int) -> Tuple[bool, BotLeetCodeTask]:
     def execute_select_query(session):
         # create the transaction and execute query.
         query = '''
         DECLARE $dateId AS Int64;
 
-        SELECT title, text, questionId
+        SELECT title, text, questionId, hints
         FROM dailyQuestion
         WHERE id = $dateId;
         '''
@@ -61,7 +64,8 @@ def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
             dateId,
             result[0].questionId,
             result[0].title.decode('UTF-8'),
-            result[0].text.decode('UTF-8')
+            result[0].text.decode('UTF-8'),
+            json.loads(result[0].hints.decode('UTF-8')),
         ) if len(result) else BotLeetCodeTask(dateId)
     )
 
@@ -69,12 +73,27 @@ def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
 def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
     if not DATABASE_CONNECTED:
         return None
-    t64 = json.dumps(task.Title)
-    c64 = json.dumps(task.Content)
 
     def do_insert(session):
-        return session.transaction().execute(
-            f'replace into dailyQuestion (id, questionId, title, text) VALUES ({task.DateId}, {task.QuestionId},{t64}, {c64});',
+        query = '''
+        DECLARE $dateId AS Int64;
+        DECLARE $questionId AS Int64;
+        DECLARE $title AS String;
+        DECLARE $content AS String;
+        DECLARE $hints AS String;
+
+        REPLACE INTO dailyQuestion (id, questionId, title, text, hints)
+        VALUES ($dateId, $questionId, $title, $content, $hints);
+        '''
+        prepared_query = session.prepare(query)
+        return session.transaction(ydb.SerializableReadWrite()).execute(
+            prepared_query, {
+                '$dateId': task.DateId,
+                '$questionId': task.QuestionId,
+                '$title': task.Title.encode('UTF-8'),
+                '$content': task.Content.encode('UTF-8'),
+                '$hints': json.dumps(task.Hints).encode('UTF-8'),
+            },
             commit_tx=True,
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
