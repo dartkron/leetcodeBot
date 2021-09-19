@@ -1,5 +1,6 @@
 import os
 import json
+from time import sleep
 
 from typing import Tuple
 from datetime import datetime
@@ -15,21 +16,28 @@ if not os.getenv('YDB_ENDPOINT') or not os.getenv('YDB_DATABASE'):
     print('Environment variables "YDB_ENDPOINT" and/or "YDB_DATABASE" are not set.\nDatabase functions will do nothing!')
     DATABASE_CONNECTED = False
 else:
-    try:
-        # create driver in global space.
-        driver_config = ydb.DriverConfig(
-            os.getenv('YDB_ENDPOINT'), os.getenv('YDB_DATABASE'),
-            credentials=ydb.construct_credentials_from_environ(),
-            root_certificates=ydb.load_ydb_root_certificate(),
-        )
-        driver = ydb.Driver(driver_config)
-        # Wait for the driver to become active for requests.
-        driver.wait(fail_fast=True, timeout=5)
-        # Create the session pool instance to manage YDB sessions.
-        pool = ydb.SessionPool(driver)
-    except Exception as e: # pylint: disable=broad-except
-        print(f'Error on database module inititalization:\n{e}\nAll database operations will be omitted')
-        DATABASE_CONNECTED = False
+    for i in range(3):
+        try:
+            # create driver in global space.
+            driver_config = ydb.DriverConfig(
+                os.getenv('YDB_ENDPOINT'), os.getenv('YDB_DATABASE'),
+                credentials=ydb.construct_credentials_from_environ(),
+                root_certificates=ydb.load_ydb_root_certificate(),
+            )
+            driver = ydb.Driver(driver_config)
+            # Wait for the driver to become active for requests.
+            driver.wait(fail_fast=True, timeout=5)
+            # Create the session pool instance to manage YDB sessions.
+            pool = ydb.SessionPool(driver)
+            DATABASE_CONNECTED = True
+        except Exception as e: # pylint: disable=broad-except
+            print(f'Error on database module inititalization:\n{e}\nRetry in 100ms')
+            DATABASE_CONNECTED = False
+            sleep(0.1)
+            continue
+        break
+    if not DATABASE_CONNECTED:
+        print('Connection to database failed. All database operations will do nothing =(')
 
 
 def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
