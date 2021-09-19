@@ -11,7 +11,7 @@ from yandex.cloud.serverless.functions.v1.function_service_pb2_grpc import Funct
 
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
-logging.basicConfig(format=FORMAT, level=logging.ERROR)
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.info('Hello world')
 
 
@@ -31,10 +31,12 @@ def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> N
     with open(archiveName, 'rb') as f:
         content = f.read()
     logging.info('Deployment of %s started', archiveName)
+    githubRef = os.getenv('GITHUB_REF')
+    commitSha = os.getenv('GITHUB_SHA')
     createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
             function_id=currentVersion.function_id,
             runtime=currentVersion.runtime,
-            description='commit #asdfasd',
+            description=f'ref {githubRef} commit: {commitSha}',
             entrypoint=currentVersion.entrypoint,
             resources=currentVersion.resources,
             execution_timeout=currentVersion.execution_timeout,

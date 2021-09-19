@@ -44,3 +44,7 @@ Plan to add:
 
 ## Using Leetcode graphQl api
 Only recieving of daily tasks coded.
+
+## Continuous delivery
+Here you can see very basic example of continuous delivery to two Yandex.Cloud functions.
+See `.github/workflows/deploy.yml` for details.
