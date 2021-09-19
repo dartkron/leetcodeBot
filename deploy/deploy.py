@@ -2,6 +2,8 @@ import os
 import sys
 import logging
 
+from typing import Dict, List, Any
+
 import yandexcloud
 
 from yandex.cloud.serverless.functions.v1.function_service_pb2 import ListFunctionsVersionsRequest, CreateFunctionVersionRequest
@@ -41,7 +43,7 @@ def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> N
             environment={key: val for key, val in currentVersion.environment.items()},
         ))
 
-    operationResult = sdk.wait_operation_and_get_result(createOperation, timeout=300)
+    sdk.wait_operation_and_get_result(createOperation, timeout=300)
 
     logging.info('Deployment of %s finished', archiveName)
 
@@ -51,7 +53,7 @@ def main() -> None:
     sdk = yandexcloud.SDK(service_account_key=sa_key)
     logging.info('Authentication finished')
     slService = sdk.client(FunctionServiceStub)
-    deploys = [
+    deploys: List[Dict[str, Any]] = [
         {'targetFunctionId': os.getenv('TARGET_FUNCTION_ID'), 'archiveName': 'bot.zip', 'slService': slService, 'sdk': sdk},
         {'targetFunctionId': os.getenv('REMINDER_FUNCTION_ID'), 'archiveName': 'reminder.zip', 'slService': slService, 'sdk': sdk},
     ]

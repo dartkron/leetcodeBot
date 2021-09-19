@@ -36,8 +36,8 @@ __If database connection will fail or variables will not set, bot will connect L
 1. Can send you today task in response on any request.
 2. Can send task hints if they isset.
 3. Subscribe/Unsubscribe buttons/commands.
-4. Once per day reminder serverless function send new task to all users who subscribed
-And it's all on current stage.
+4. Once per day reminder serverless function send new task to all users who subscribed. Reminder require `SENDING_TOKEN` environment variable with Telegram API token.
+And it's all on the current stage.
 
 Plan to add:
 1. Possibly get authorization token from subscriber, to show progress, may be hints.
