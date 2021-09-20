@@ -21,7 +21,7 @@ def startAction(responseBody: Dict[str, Any]) -> str:
     if user.Subscribed:
         return f'{user.FirstName}, you have <strong>already subscribed</strong> for daily updates, nothing to do.'
     bot_ydb.subscribeUser(user)
-    return f'{user.FirstName}, you have <strong>sucessfully subscribed</strong>. You\'ll automatically recieve daily tasks when they will appear.'
+    return f'{user.FirstName}, you have <strong>sucessfully subscribed</strong>. You\'ll automatically recieve daily tasks when they appear.'
 
 
 def stopAction(responseBody: Dict[str, Any]) -> str:
