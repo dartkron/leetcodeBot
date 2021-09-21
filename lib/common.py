@@ -46,6 +46,16 @@ class BotLeetCodeTask(LeetCodeTask):
         listOfHints = [[{'text': 'See task on LeetCode website', 'url': f'https://leetcode.com/explore/item/{self.QuestionId}'}]] + listOfHints
         return json.dumps({'inline_keyboard': listOfHints})
 
+    def toJsonStr(self) -> str:
+        return json.dumps({
+            'dateId': self.DateId,
+            'questionId': self.QuestionId,
+            'title': self.Title,
+            'content': self.Content,
+            'hints': self.Hints,
+        })
+
+
 class User:
     def __init__(self, userId: int = 0, chatId: int = 0, username: str = '', firstName: str = '', lastName: str = '', subscribed: bool = False):
         self.UserId = userId
