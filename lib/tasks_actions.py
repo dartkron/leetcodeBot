@@ -13,7 +13,7 @@ CACHE_FILE_NAME = '/tmp/task_{taskId}.cache' # nosec
 
 def getFromCache(taskId: int) -> Tuple[bool, BotLeetCodeTask]:
     fileName = CACHE_FILE_NAME.format(taskId=taskId)
-    if os.path.isfile(fileName):
+    if os.path.exists(fileName) and os.path.isfile(fileName):
         with open(fileName) as cacheFile:
             task = loadTaskFromJsonStr(cacheFile.read())
     else:
@@ -24,7 +24,7 @@ def getFromCache(taskId: int) -> Tuple[bool, BotLeetCodeTask]:
 def saveToCache(task: BotLeetCodeTask) -> None:
     fileName = CACHE_FILE_NAME.format(taskId=task.DateId)
     if not os.path.exists(fileName):
-        with open(fileName) as cacheFile:
+        with open(fileName, 'w') as cacheFile:
             cacheFile.write(task.toJsonStr())
     return None
 
