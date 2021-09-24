@@ -12,32 +12,40 @@ from lib.common import BotLeetCodeTask, getTaskId, User
 
 DATABASE_CONNECTED = True
 
-if not os.getenv('YDB_ENDPOINT') or not os.getenv('YDB_DATABASE'):
-    print('Environment variables "YDB_ENDPOINT" and/or "YDB_DATABASE" are not set.\nDatabase functions will do nothing!')
-    DATABASE_CONNECTED = False
-else:
-    for i in range(3):
-        try:
-            # create driver in global space.
-            driver_config = ydb.DriverConfig(
-                os.getenv('YDB_ENDPOINT'), os.getenv('YDB_DATABASE'),
-                credentials=ydb.construct_credentials_from_environ(),
-                root_certificates=ydb.load_ydb_root_certificate(),
-            )
-            driver = ydb.Driver(driver_config)
-            # Wait for the driver to become active for requests.
-            driver.wait(fail_fast=True, timeout=5)
-            # Create the session pool instance to manage YDB sessions.
-            pool = ydb.SessionPool(driver)
-            DATABASE_CONNECTED = True
-        except Exception as e: # pylint: disable=broad-except
-            print(f'Error on database module inititalization:\n{e}\nRetry in 100ms')
+POOL = None
+
+def getPool():
+    global POOL
+    if POOL is not None:
+        return POOL
+    else:
+        if not os.getenv('YDB_ENDPOINT') or not os.getenv('YDB_DATABASE'):
+            print('Environment variables "YDB_ENDPOINT" and/or "YDB_DATABASE" are not set.\nDatabase functions will do nothing!')
             DATABASE_CONNECTED = False
-            sleep(0.1)
-            continue
-        break
-    if not DATABASE_CONNECTED:
-        print('Connection to database failed. All database operations will do nothing =(')
+        else:
+            for i in range(3):
+                try:
+                    # create driver in global space.
+                    driver_config = ydb.DriverConfig(
+                        os.getenv('YDB_ENDPOINT'), os.getenv('YDB_DATABASE'),
+                        credentials=ydb.construct_credentials_from_environ(),
+                        root_certificates=ydb.load_ydb_root_certificate(),
+                    )
+                    driver = ydb.Driver(driver_config)
+                    # Wait for the driver to become active for requests.
+                    driver.wait(fail_fast=True, timeout=5)
+                    # Create the session pool instance to manage YDB sessions.
+                    POOL = ydb.SessionPool(driver)
+                    DATABASE_CONNECTED = True
+                except Exception as e: # pylint: disable=broad-except
+                    print(f'Error on database module inititalization:\n{e}\n {i + 1}/(2) retry in 100ms')
+                    DATABASE_CONNECTED = False
+                    sleep(0.1)
+                    continue
+                break
+            if not DATABASE_CONNECTED:
+                print('Connection to database failed. All database operations will do nothing =(')
+            return POOL
 
 
 def getTaskOfTheDay(targetDate: datetime) -> Tuple[bool, BotLeetCodeTask]:
@@ -50,7 +58,7 @@ def getTaskById(dateId: int) -> Tuple[bool, BotLeetCodeTask]:
     def execute_select_query(session):
         # create the transaction and execute query.
         query = '''
-        DECLARE $dateId AS Int64;
+        DECLARE $dateId AS Uint64;
 
         SELECT title, text, questionId, hints
         FROM dailyQuestion
@@ -65,7 +73,7 @@ def getTaskById(dateId: int) -> Tuple[bool, BotLeetCodeTask]:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
 
-    result = pool.retry_operation_sync(execute_select_query)[0].rows
+    result = getPool().retry_operation_sync(execute_select_query)[0].rows
     return (
         bool(len(result)),
         BotLeetCodeTask(
@@ -84,8 +92,8 @@ def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
 
     def do_insert(session):
         query = '''
-        DECLARE $dateId AS Int64;
-        DECLARE $questionId AS Int64;
+        DECLARE $dateId AS Uint64;
+        DECLARE $questionId AS Uint64;
         DECLARE $title AS String;
         DECLARE $content AS String;
         DECLARE $hints AS String;
@@ -105,7 +113,7 @@ def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
             commit_tx=True,
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
-    return pool.retry_operation_sync(do_insert)
+    return getPool().retry_operation_sync(do_insert)
 
 
 def getUser(userId: int) -> Tuple[bool, User]:
@@ -130,7 +138,7 @@ def getUser(userId: int) -> Tuple[bool, User]:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
 
-    result = pool.retry_operation_sync(execute_select_query)[0].rows
+    result = getPool().retry_operation_sync(execute_select_query)[0].rows
     return (
         bool(len(result)),
         User(
@@ -174,7 +182,7 @@ def saveUser(user: User) -> None:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
 
-    return pool.retry_operation_sync(do_insert)
+    return getPool().retry_operation_sync(do_insert)
 
 
 def subscribeUser(user: User) -> None:
@@ -198,7 +206,7 @@ def subscribeUser(user: User) -> None:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
 
-    return pool.retry_operation_sync(do_update)
+    return getPool().retry_operation_sync(do_update)
 
 
 def unsubscribeUser(user: User) -> None:
@@ -222,7 +230,7 @@ def unsubscribeUser(user: User) -> None:
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
 
-    return pool.retry_operation_sync(do_update)
+    return getPool().retry_operation_sync(do_update)
 
 
 def getSubscribedUsersIds() -> List[int]:
@@ -241,5 +249,5 @@ def getSubscribedUsersIds() -> List[int]:
             commit_tx=True,
             settings=ydb.BaseRequestSettings().with_timeout(3).with_operation_timeout(2)
         )
-    result = pool.retry_operation_sync(execute_select_query)[0].rows
+    result = getPool().retry_operation_sync(execute_select_query)[0].rows
     return [int(user.chat_id) for user in result]

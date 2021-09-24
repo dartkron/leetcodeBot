@@ -10,8 +10,8 @@ Expect following tables structure:
 ```(sql)
 CREATE TABLE `dailyQuestion`
 (
-    `id` Int64,
-    `questionId` Int64,
+    `id` Uint64,
+    `questionId` Uint64,
     `text` String,
     `title` String,
     PRIMARY KEY (`id`)
