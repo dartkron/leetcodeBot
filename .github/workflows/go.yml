@@ -1,0 +1,68 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Test
+      run: go test -v ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Lint
+      run: |
+        go get -u golang.org/x/lint/golint
+        golint -set_exit_status ./...
+
+  deploy:
+    needs: [lint, tests]
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r deploy/requirements.txt
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt-get -yq install zip
+    - name: Deploy version to serverless
+      env:
+          service_account_key_id: ${{ secrets.SERVICE_ACCOUNT_KEY_ID }}
+          SERVICE_ACCOUNT_ID: ${{ secrets.SERVICE_ACCOUNT_ID }}
+          SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.SERVICE_ACCOUNT_PRIVATE_KEY }}
+          TARGET_FUNCTION_ID: ${{ secrets.TARGET_FUNCTION_ID }}
+          REMINDER_FUNCTION_ID: ${{ secrets.REMINDER_FUNCTION_ID }}
+      run: |
+        zip -r ./bot.zip ./bot.go ./go.mod ./go.sum ./pkg/ ./internal/ -x "*_test.go"
+        zip -j ./bot.zip ./cmd/bot/bot.go
+        zip -r ./reminder.zip ./bot.go ./go.mod ./go.sum ./pkg/ ./internal/ -x "*_test.go"
+        zip -j ./reminder.zip ./cmd/reminder/reminder.go
+        python ./deploy/deploy.py

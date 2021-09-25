@@ -1,24 +1,19 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.194.0/containers/python-3/.devcontainer/base.Dockerfile
+# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.194.0/containers/go/.devcontainer/base.Dockerfile
 
-# [Choice] Python version: 3, 3.9, 3.8, 3.7, 3.6
-ARG VARIANT="3.9"
-FROM mcr.microsoft.com/vscode/devcontainers/python:0-${VARIANT}
+# [Choice] Go version: 1, 1.16, 1.17
+ARG VARIANT="1.17"
+FROM mcr.microsoft.com/vscode/devcontainers/go:0-${VARIANT}
 
 # [Choice] Node.js version: none, lts/*, 16, 14, 12, 10
 ARG NODE_VERSION="none"
 RUN if [ "${NODE_VERSION}" != "none" ]; then su vscode -c "umask 0002 && . /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
-# [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
-# COPY requirements.txt /tmp/pip-tmp/
-# RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt \
-#    && rm -rf /tmp/pip-tmp
-
-# Install dev-tools
-RUN /usr/local/bin/pip3 --no-cache-dir install pytest pytest-mock types-pytz
-
 # [Optional] Uncomment this section to install additional OS packages.
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
+
+# [Optional] Uncomment the next line to use go get to install anything else you need
+# RUN go get -x <your-dependency-or-tool>
 
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1

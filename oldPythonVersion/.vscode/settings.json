@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/workspaces/leetcodeBot"
+    ],
+    "python.analysis.extraPaths": [
+        "/workspaces/leetcodeBot"
+    ]
+}
