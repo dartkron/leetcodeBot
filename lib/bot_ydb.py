@@ -60,7 +60,7 @@ def getTaskById(dateId: int) -> Tuple[bool, BotLeetCodeTask]:
         query = '''
         DECLARE $dateId AS Uint64;
 
-        SELECT title, text, questionId, hints
+        SELECT title, text, questionId, itemId, hints
         FROM dailyQuestion
         WHERE id = $dateId;
         '''
@@ -79,6 +79,7 @@ def getTaskById(dateId: int) -> Tuple[bool, BotLeetCodeTask]:
         BotLeetCodeTask(
             dateId,
             result[0].questionId,
+            result[0].itemId,
             result[0].title.decode('UTF-8'),
             result[0].text.decode('UTF-8'),
             json.loads(result[0].hints.decode('UTF-8')),
@@ -94,18 +95,20 @@ def saveTaskOfTheDay(task: BotLeetCodeTask) -> None:
         query = '''
         DECLARE $dateId AS Uint64;
         DECLARE $questionId AS Uint64;
+        DECLARE $itemId AS Uint64;
         DECLARE $title AS String;
         DECLARE $content AS String;
         DECLARE $hints AS String;
 
-        REPLACE INTO dailyQuestion (id, questionId, title, text, hints)
-        VALUES ($dateId, $questionId, $title, $content, $hints);
+        REPLACE INTO dailyQuestion (id, questionId, itemId, title, text, hints)
+        VALUES ($dateId, $questionId, $itemId, $title, $content, $hints);
         '''
         prepared_query = session.prepare(query)
         return session.transaction(ydb.SerializableReadWrite()).execute(
             prepared_query, {
                 '$dateId': task.DateId,
                 '$questionId': task.QuestionId,
+                '$itemId': task.ItemId,
                 '$title': task.Title.encode('UTF-8'),
                 '$content': task.Content.encode('UTF-8'),
                 '$hints': json.dumps(task.Hints).encode('UTF-8'),

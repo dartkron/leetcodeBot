@@ -5,14 +5,15 @@ import requests
 
 
 class LeetCodeTask: # pylint: disable=too-few-public-methods
-    def __init__(self, questionId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
+    def __init__(self, questionId: int = 0, itemId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
         self.QuestionId = questionId
+        self.ItemId = itemId
         self.Title = title
         self.Content = content
         self.Hints = hints
 
     def __repr__(self) -> str:
-        return f'QuesetionId: {self.QuestionId}\nTitle: {self.Title}\nContent: {self.Content}\nHints: {self.Hints}'
+        return f'QuesetionId: {self.QuestionId}\nItemId: {self.ItemId}\nTitle: {self.Title}\nContent: {self.Content}\nHints: {self.Hints}'
 
 
 MONTH_NAMES = {
@@ -72,7 +73,7 @@ class NonPredictableError(Error):
     pass
 
 
-def getDailyTaskId(targetDate: datetime) -> int:
+def getDailyTaskId(targetDate: datetime) -> str:
     GET_CHAPTERS['variables']['cardSlug'] = generateCardSlug(targetDate)
     r = requestGraphQl(GET_CHAPTERS)
     js = r.json()
@@ -90,8 +91,8 @@ def getDailyTaskId(targetDate: datetime) -> int:
     return js['data']['chapters'][chapter]['items'][item]['id']
 
 
-def getQestionSlug(questionId: int) -> str:
-    GET_SLUG['variables']['itemId'] = questionId
+def getQestionSlug(itemId: str) -> str:
+    GET_SLUG['variables']['itemId'] = itemId
     r = requestGraphQl(GET_SLUG)
     return r.json()['data']['item']['question']['titleSlug']
 
@@ -107,7 +108,7 @@ def generateCardSlug(date: datetime) -> str:
 
 
 def getTaskOfTheDay(targetDate: datetime) -> LeetCodeTask:
-    questionId = getDailyTaskId(targetDate)
-    s = getQestionSlug(questionId)
+    itemId = getDailyTaskId(targetDate)
+    s = getQestionSlug(itemId)
     question = getQuestionDetails(s)
-    return LeetCodeTask(int(questionId), question['questionTitle'], question['content'], question['hints'])
+    return LeetCodeTask(int(question['questionId']), int(itemId), question['questionTitle'], question['content'], question['hints'])

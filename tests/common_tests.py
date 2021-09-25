@@ -60,7 +60,7 @@ def test_fixTagsAndImages() -> None:
     with patch('lib.common.replaceImgWithA', return_value = 'replaced A') as patched_replaceA, \
             patch('lib.common.removeUnsupportedTags', return_value = 'removed tags') as patched_removeTags:
 
-        res = fixTagsAndImages(BotLeetCodeTask(1, 2, 'test title', 'test content'))
+        res = fixTagsAndImages(BotLeetCodeTask(1, 2, 3, 'test title', 'test content'))
         assert(res.Content == 'replaced A')
         assert(res.Title == 'removed tags')
         patched_replaceA.assert_called_once_with('removed tags')

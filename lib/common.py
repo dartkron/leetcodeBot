@@ -19,12 +19,12 @@ class SendMessageError(Error):
 
 
 class BotLeetCodeTask(LeetCodeTask):
-    def __init__(self, dateId: int = 0, questionId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
+    def __init__(self, dateId: int = 0, questionId: int = 0, itemId: int = 0, title: str = '', content: str = '', hints: List[str] = []) -> None:
         self.DateId = dateId
-        LeetCodeTask.__init__(self, questionId, title, content, hints)
+        LeetCodeTask.__init__(self, questionId, itemId, title, content, hints)
 
     def fromLeetCodeTask(self, task: LeetCodeTask):
-        LeetCodeTask.__init__(self, task.QuestionId, task.Title, task.Content, task.Hints)
+        LeetCodeTask.__init__(self, task.QuestionId, task.ItemId, task.Title, task.Content, task.Hints)
 
     def __repr__(self) -> str:
         return f'DateId: {self.DateId}\n' + LeetCodeTask.__repr__(self)
@@ -43,13 +43,14 @@ class BotLeetCodeTask(LeetCodeTask):
         if level:
             listOfHints.append(level.copy())
             level = []
-        listOfHints = [[{'text': 'See task on LeetCode website', 'url': f'https://leetcode.com/explore/item/{self.QuestionId}'}]] + listOfHints
+        listOfHints = [[{'text': 'See task on LeetCode website', 'url': f'https://leetcode.com/explore/item/{self.ItemId}'}]] + listOfHints
         return json.dumps({'inline_keyboard': listOfHints})
 
     def toJsonStr(self) -> str:
         return json.dumps({
             'dateId': self.DateId,
             'questionId': self.QuestionId,
+            'itemId': self.QuestionId,
             'title': self.Title,
             'content': self.Content,
             'hints': self.Hints,

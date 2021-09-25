@@ -31,7 +31,7 @@ def saveToCache(task: BotLeetCodeTask) -> None:
 
 def loadTaskFromJsonStr(jsonStr: str) -> BotLeetCodeTask:
         jsonTask = json.loads(jsonStr)
-        return BotLeetCodeTask(jsonTask['dateId'], jsonTask['questionId'], jsonTask['title'], jsonTask['content'], jsonTask['hints'])
+        return BotLeetCodeTask(jsonTask['dateId'], jsonTask['questionId'], jsonTask['itemId'], jsonTask['title'], jsonTask['content'], jsonTask['hints'])
 
 
 def getFixedTaskForDate(targetDate: datetime) -> BotLeetCodeTask:
