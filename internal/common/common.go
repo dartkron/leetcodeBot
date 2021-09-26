@@ -23,10 +23,21 @@ type inlineButton struct {
 	CallbackData string `json:"callback_data,omitempty"`
 }
 
+// CallbackType means type of CallbackData recieved from user or marshalled into inline buttons
+type CallbackType uint8
+
+const (
+	// HintReuqest means callback is about hint, not difficulty
+	HintReuqest CallbackType = iota
+	// DifficultyRequest means that callback require only difficulty
+	DifficultyRequest
+)
+
 // CallbackData stuct for unmarshal JSON in callbackRequests and marshal in inlineKeyboard building
 type CallbackData struct {
-	DateID uint64 `json:"dateID,string,omitempty"`
-	Hint   int    `json:"hint"`
+	DateID uint64       `json:"dateID,string,omitempty"`
+	Type   CallbackType `json:"callback_type"`
+	Hint   int          `json:"hint"`
 }
 
 // BotLeetCodeTask is iternal LeetcodeTask representation with bot-related info: DateID
@@ -50,17 +61,31 @@ func (task *BotLeetCodeTask) GetTaskText() string {
 	return fmt.Sprintf("<strong>%s</strong>\n\n%s", task.Title, task.Content)
 }
 
+func getMarshalledCallbackData(dateID uint64, hintID int, dataType CallbackType) (string, error) {
+	callbackData := CallbackData{DateID: dateID, Type: dataType}
+	if dataType == HintReuqest {
+		callbackData.Hint = int(hintID)
+	}
+	callbackDataMarshaled, err := json.Marshal(callbackData)
+	return string(callbackDataMarshaled), err
+}
+
 // GetInlineKeyboard returns inline keyboard for task marshalled into JSON string
 func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	listOfHints := [][]inlineButton{{}}
 	level := 0
 	for i := range task.Hints {
-		callbackData := CallbackData{DateID: task.DateID, Hint: i}
-		callbackDataMarshaled, err := json.Marshal(callbackData)
+		callbackData, err := getMarshalledCallbackData(task.DateID, i, HintReuqest)
 		if err != nil {
-			fmt.Println("Error during marshall callbackData:", err)
+			fmt.Println("Got error on marshalling callback data:", err)
 		}
-		listOfHints[level] = append(listOfHints[level], inlineButton{Text: fmt.Sprintf("Hint %d", i+1), CallbackData: string(callbackDataMarshaled)})
+		listOfHints[level] = append(
+			listOfHints[level],
+			inlineButton{
+				Text:         fmt.Sprintf("Hint %d", i+1),
+				CallbackData: string(callbackData),
+			})
+		// 5 hints in the row
 		if (i+1)%5 == 0 {
 			level++
 			listOfHints = append(listOfHints, []inlineButton{})
@@ -74,6 +99,22 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 			},
 		},
 	}, listOfHints...)
+
+	// Append difficulty hint to task inline keyboard
+	getDifficultyCallbackData, err := getMarshalledCallbackData(task.DateID, 0, DifficultyRequest)
+	if err != nil {
+		fmt.Println("Got error on marshalling callback data:", err)
+	}
+	listOfHints = append(
+		listOfHints,
+		[]inlineButton{
+			{
+				Text:         "Hint: Get the difficulty of the task",
+				CallbackData: getDifficultyCallbackData,
+			},
+		},
+	)
+
 	inlineKeyboard, err := json.Marshal(map[string][][]inlineButton{"inline_keyboard": listOfHints})
 	if err != nil {
 		fmt.Println("Error during marshall inlineKeyboard:", err)

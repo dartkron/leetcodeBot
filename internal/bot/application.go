@@ -115,23 +115,31 @@ func (app *Application) ProcessRequestBody(body []byte) ([]byte, error) {
 }
 
 func (app *Application) processCallback(request TelegramRequest) (*TelegramResponse, error) {
+	response := NewTelegramResponse()
 	callback := common.CallbackData{}
 	err := json.Unmarshal([]byte(request.CallbackQuery.Data), &callback)
-	response := NewTelegramResponse()
 	if err != nil {
 		return response, err
 	}
 	response.ChatID = request.CallbackQuery.From.ID
 	task, err := app.storageController.GetTask(callback.DateID)
-	if err == storage.ErrNoSuchTask {
-		response.Text = "There is not such dailyTask. Try another breach ;)"
+	if err != nil {
+		if err == storage.ErrNoSuchTask {
+			response.Text = "There is not such dailyTask. Try another breach ;)"
+		} else {
+			response.Text = "Something went completely wrong"
+		}
 		return response, nil
 	}
-	if callback.Hint > len(task.Hints)-1 {
-		response.Text = fmt.Sprintf("There is no such hint for task %d", callback.DateID)
-		return response, nil
+	if callback.Type == common.HintReuqest {
+		if callback.Hint > len(task.Hints)-1 {
+			response.Text = fmt.Sprintf("There is no such hint for task %d", callback.DateID)
+			return response, nil
+		}
+		response.Text = fmt.Sprintf("Hint #%d: %s", callback.Hint+1, task.Hints[callback.Hint])
+	} else if callback.Type == common.DifficultyRequest {
+		response.Text = fmt.Sprintf("Task difficulty: %s", task.Difficulty)
 	}
-	response.Text = fmt.Sprintf("Hint #%d: %s", callback.Hint+1, task.Hints[callback.Hint])
 	return response, nil
 }
 
