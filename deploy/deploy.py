@@ -33,6 +33,11 @@ def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> N
     logging.info('Deployment of %s started', archiveName)
     githubRef = os.getenv('GITHUB_REF')
     commitSha = os.getenv('GITHUB_SHA')
+    
+    # That's just a weird way to leave comment with commit in the function description
+    envVars = currentVersion.environment
+    envVars['GIT_VERSION'] = f'{githubRef} {commitSha}'
+    
     createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
             function_id=currentVersion.function_id,
             runtime=currentVersion.runtime,
@@ -42,9 +47,8 @@ def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> N
             execution_timeout=currentVersion.execution_timeout,
             service_account_id=currentVersion.service_account_id,
             content=content,
-            environment={key: val for key, val in currentVersion.environment.items()},
+            environment=envVars,
         ))
-
     sdk.wait_operation_and_get_result(createOperation, timeout=300)
 
     logging.info('Deployment of %s finished', archiveName)
