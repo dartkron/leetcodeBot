@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	leetcodeclient "github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
 )
 
 const (

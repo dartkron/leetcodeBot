@@ -126,7 +126,7 @@ func (c *LeetCodeGraphQlClient) getQuestionSlug(itemID string) (string, error) {
 	return parsed.Data.Item.Question.TitleSlug, err
 }
 
-// GetQuestionDetailsByItemID provides all details of questions: title, text, hints by provided itemID
+// GetQuestionDetailsByItemID provides all details of the question: title, text, hints, difficulty by provided itemID
 func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(itemID string) (LeetCodeTask, error) {
 	questionReq := c.getQuestionReq
 	questionSlug, err := c.getQuestionSlug(itemID)
