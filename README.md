@@ -1,3 +1,5 @@
+[![Maintainability](https://api.codeclimate.com/v1/badges/371cc101c86797eb2e70/maintainability)](https://codeclimate.com/github/dartkron/leetcodeBot/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/371cc101c86797eb2e70/test_coverage)](https://codeclimate.com/github/dartkron/leetcodeBot/test_coverage)
 # Telegram bot for Leetcode daily tasks
 I've found it useful for me to see actual daily task in Telegram. Also want to have notificator about daily task =)
 

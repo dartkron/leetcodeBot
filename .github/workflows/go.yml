@@ -8,6 +8,29 @@ on:
 
 jobs:
 
+  tests-coverage-reporter:
+    env:
+      CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Pre-run
+      run: |
+        curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+        chmod +x ./cc-test-reporter
+        ./cc-test-reporter before-build
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Calculate test coverage
+      run: go test -coverprofile=c.out ./...
+
+    - name: Post run
+      run: ./cc-test-reporter after-build format-coverage -t gocov --prefix github.com/dartkron/leetcodeBot/v2 .cover/c.out --exit-code $?
+
+
   tests:
     runs-on: ubuntu-latest
     steps:
