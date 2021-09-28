@@ -138,7 +138,7 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 
 	for res.NextResultSet(ctx, "title", "text", "questionId", "itemId", "hints", "difficulty") {
 		for res.NextRow() {
-			err := res.Scan(
+			err = res.Scan(
 				&title,
 				&text,
 				&questionID,
@@ -147,7 +147,7 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 				&difficulty,
 			)
 			if err != nil {
-				return common.BotLeetCodeTask{}, err
+				break
 			}
 			returnValue.Title = *title
 			returnValue.Content = *text
@@ -156,14 +156,14 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 			returnValue.SetDifficultyFromNum(*difficulty)
 			err = json.Unmarshal([]byte(*hints), &returnValue.Hints)
 			if err != nil {
-				return returnValue, err
+				break
 			}
 		}
+		if err != nil {
+			return common.BotLeetCodeTask{}, err
+		}
 	}
-	if res.Err() != nil {
-		return common.BotLeetCodeTask{}, res.Err()
-	}
-	return returnValue, nil
+	return returnValue, res.Err()
 }
 
 func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
@@ -229,10 +229,7 @@ func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
 			returnValue.Subscribed = *subscribed
 		}
 	}
-	if res.Err() != nil {
-		return common.User{}, res.Err()
-	}
-	return returnValue, nil
+	return returnValue, res.Err()
 }
 
 func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {

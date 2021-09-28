@@ -122,10 +122,11 @@ func (s *YDBandFileCacheController) SubscribeUser(user common.User) error {
 		return ErrNoActiveUsersStorage
 	}
 	storedUser, err := s.usersDB.getUser(user.ID)
-	if err == ErrNoSuchUser {
-		user.Subscribed = true
-		return s.usersDB.saveUser(user)
-	} else if err != nil {
+	if err != nil {
+		if err == ErrNoSuchUser {
+			user.Subscribed = true
+			err = s.usersDB.saveUser(user)
+		}
 		return err
 	}
 	if storedUser.Subscribed {
@@ -141,9 +142,10 @@ func (s *YDBandFileCacheController) UnsubscribeUser(userID uint64) error {
 		return ErrNoActiveUsersStorage
 	}
 	user, err := s.usersDB.getUser(userID)
-	if err == ErrNoSuchUser {
-		return ErrUserAlreadyUnsubscribed
-	} else if err != nil {
+	if err != nil {
+		if err == ErrNoSuchUser {
+			err = ErrUserAlreadyUnsubscribed
+		}
 		return err
 	}
 	if !user.Subscribed {
