@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var ErrBypassTest error = errors.New("test bypass error")
@@ -208,4 +210,17 @@ func TestGetDailyTask(t *testing.T) {
 
 	}
 
+}
+
+func TestNewLeetCodeGraphQlClient(t *testing.T) {
+	client := NewLeetCodeGraphQlClient()
+	assert.NotEmpty(t, client.getChaptersReq.OperationName, "getChaptersReq.OperationName must be configured in constructor")
+	assert.NotEmpty(t, client.getSlugReq.OperationName, "getSlugReq.OperationName must be configured in constructor")
+	assert.NotEmpty(t, client.getQuestionReq.OperationName, "getQuestionReq.OperationName must be configured in constructor")
+	assert.NotNil(t, client.transport, "transport must be configured in constructor")
+}
+
+func TestNewLeetCodeGraphQlClientLocal(t *testing.T) {
+	client := newLeetCodeGraphQlClient(nil)
+	assert.Nil(t, client.transport, "transport must be set in private constructor")
 }

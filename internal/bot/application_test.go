@@ -1,76 +1,21 @@
 package bot
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/dartkron/leetcodeBot/v2/internal/storage"
 	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	lcclientmocks "github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient/mocks"
+	"github.com/dartkron/leetcodeBot/v2/tests"
+	"github.com/dartkron/leetcodeBot/v2/tests/mocks"
+	"github.com/stretchr/testify/assert"
 )
-
-var ErrWorngContentType = errors.New("content type should be \"application/json\"")
-
-var ErrBypassTest error = errors.New("test bypass error")
-
-type httpResponse struct {
-	response *http.Response
-	err      error
-}
-
-var MockHTTPPostRequests []string
-
-var MockHTTPPostknownRequests map[string]httpResponse
-
-func MockHTTPPost(url string, contentType string, body io.Reader) (*http.Response, error) {
-	request, err := io.ReadAll(body)
-	if err != nil {
-		return &http.Response{}, err
-	}
-	requestString := string(request)
-	MockHTTPPostRequests = append(MockHTTPPostRequests, requestString)
-	if contentType != "application/json" {
-		return &http.Response{}, ErrWorngContentType
-	}
-	if response, ok := MockHTTPPostknownRequests[requestString]; ok {
-		return response.response, response.err
-	}
-	return &http.Response{StatusCode: http.StatusInternalServerError}, http.ErrBodyNotAllowed
-}
-
-type MockLeetcodeClient struct {
-	tasks        map[uint64]leetcodeclient.LeetCodeTask
-	callsJournal []string
-	failedTaskID uint64
-}
-
-func (m *MockLeetcodeClient) GetDailyTaskItemID(date time.Time) (string, error) {
-	m.callsJournal = append(m.callsJournal, fmt.Sprintf("GetDailyTaskItemID %d", common.GetDateID(date)))
-	return "1", nil
-}
-
-func (m *MockLeetcodeClient) GetQuestionDetailsByItemID(itemID string) (leetcodeclient.LeetCodeTask, error) {
-	m.callsJournal = append(m.callsJournal, fmt.Sprintf("GetQuestionDetailsByItemID %s", itemID))
-	return leetcodeclient.LeetCodeTask{}, nil
-}
-
-func (m *MockLeetcodeClient) GetDailyTask(date time.Time) (leetcodeclient.LeetCodeTask, error) {
-	m.callsJournal = append(m.callsJournal, fmt.Sprintf("GetDailyTask %d", common.GetDateID(date)))
-	dateID := common.GetDateID(date)
-	if dateID == m.failedTaskID {
-		return leetcodeclient.LeetCodeTask{}, ErrBypassTest
-	}
-	if resp, ok := m.tasks[dateID]; ok {
-		return resp, nil
-	}
-	return leetcodeclient.LeetCodeTask{}, errors.New("Not such task")
-}
 
 type MockStorageController struct {
 	tasks                      map[uint64]*common.BotLeetCodeTask
@@ -84,7 +29,7 @@ type MockStorageController struct {
 func (controller *MockStorageController) GetTask(dateID uint64) (common.BotLeetCodeTask, error) {
 	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("GetTask %d", dateID))
 	if dateID == controller.failedTaskID {
-		return common.BotLeetCodeTask{}, ErrBypassTest
+		return common.BotLeetCodeTask{}, tests.ErrBypassTest
 	}
 	if task, ok := controller.tasks[dateID]; ok {
 		return *task, nil
@@ -95,7 +40,7 @@ func (controller *MockStorageController) GetTask(dateID uint64) (common.BotLeetC
 func (controller *MockStorageController) SaveTask(task common.BotLeetCodeTask) error {
 	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("SaveTask %d", task.DateID))
 	if task.DateID == controller.failedTaskID {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	controller.tasks[task.DateID] = &task
 	return nil
@@ -104,7 +49,7 @@ func (controller *MockStorageController) SaveTask(task common.BotLeetCodeTask) e
 func (controller *MockStorageController) SubscribeUser(user common.User) error {
 	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("SubscribeUser %d", user.ID))
 	if user.ID == controller.failedUserID {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	if user, ok := controller.users[user.ID]; ok {
 		if user.Subscribed {
@@ -120,7 +65,7 @@ func (controller *MockStorageController) SubscribeUser(user common.User) error {
 func (controller *MockStorageController) UnsubscribeUser(userID uint64) error {
 	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("UnsubscribeUser %d", userID))
 	if userID == controller.failedUserID {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	if user, ok := controller.users[userID]; ok {
 		if !user.Subscribed {
@@ -136,7 +81,7 @@ func (controller *MockStorageController) UnsubscribeUser(userID uint64) error {
 func (controller *MockStorageController) GetSubscribedUsers() ([]common.User, error) {
 	controller.callsJournal = append(controller.callsJournal, "GetSubscribedUsers")
 	if controller.getSubscribedUsersMustFail {
-		return []common.User{}, ErrBypassTest
+		return []common.User{}, tests.ErrBypassTest
 	}
 	resp := []common.User{}
 	for _, user := range controller.users {
@@ -150,33 +95,25 @@ func (controller *MockStorageController) GetSubscribedUsers() ([]common.User, er
 func TestGetMainKeyboard(t *testing.T) {
 	waitKeyboard := "{\"keyboard\":[[{\"text\":\"Get actual daily task\"}],[{\"text\":\"Subscribe\"},{\"text\":\"Unsubscribe\"}]],\"input_field_placeholder\":\"Please, use buttons below:\",\"resize_keyboard\":true}"
 	keyboard, err := GetMainKeyboard()
-	if err != nil {
-		t.Errorf("Got error from GetMainKeyboard %q", err)
-	}
-	if !reflect.DeepEqual(waitKeyboard, keyboard) {
-		t.Errorf("Returned keyboard:\n%q\nnot equal with awaited:\n%q\n", keyboard, waitKeyboard)
-	}
+	assert.Equal(t, err, nil, "Got uexpected error from GetMainKeyboard")
+	assert.Equal(t, waitKeyboard, keyboard, "Returned keyboard not equal with expected")
 }
 
-func getTestApp() (*MockStorageController, *MockLeetcodeClient, *Application) {
-	MockHTTPPostRequests = []string{}
-	MockHTTPPostknownRequests = map[string]httpResponse{
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1120,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1120"))},
-		},
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1126"))},
-		},
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1127,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": {
-			response: &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader("1127"))},
-		},
-	}
-	app := NewApplication()
-	leetcodeClient := &MockLeetcodeClient{
-		tasks: map[uint64]leetcodeclient.LeetCodeTask{},
-	}
-	app.leetcodeAPIClient = leetcodeClient
-	app.PostFunc = MockHTTPPost
+func getTodaySendMessageString(chatID uint64) string {
+	template := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":%d,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"" +
+		"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}]," +
+		"[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"DATEID_PLACE\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"}," +
+		"{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"DATEID_PLACE\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}]," +
+		"[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":" +
+		"\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"DATEID_PLACE\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}"
+	dateID := common.GetDateIDForNow()
+	template = strings.ReplaceAll(template, "DATEID_PLACE", fmt.Sprintf("%d", dateID))
+	return fmt.Sprintf(template, chatID)
+}
+
+func getTestApp() (*mocks.MockHTTPPost, *MockStorageController, *lcclientmocks.MockLeetcodeClient, *Application) {
+	httpMock := &mocks.MockHTTPPost{}
+	leetcodeClient := &lcclientmocks.MockLeetcodeClient{}
 	storageController := &MockStorageController{
 		tasks: map[uint64]*common.BotLeetCodeTask{},
 		users: map[uint64]*common.User{
@@ -214,12 +151,34 @@ func getTestApp() (*MockStorageController, *MockLeetcodeClient, *Application) {
 			},
 		},
 	}
-	app.storageController = storageController
-	return storageController, leetcodeClient, app
+	app := &Application{
+		leetcodeAPIClient: leetcodeClient,
+		PostFunc:          httpMock.Func,
+		storageController: storageController,
+	}
+	return httpMock, storageController, leetcodeClient, app
 }
 
 func TestSendDailyTaskToSubscribedUsers(t *testing.T) {
-	storageController, _, app := getTestApp()
+	httpMock, storageController, _, app := getTestApp()
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1120),
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1120"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1126),
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1126"))},
+		nil,
+	).Times(1)
 	taskDateID := common.GetDateIDForNow()
 	storageController.tasks[taskDateID] = &common.BotLeetCodeTask{
 		DateID: taskDateID,
@@ -234,16 +193,49 @@ func TestSendDailyTaskToSubscribedUsers(t *testing.T) {
 	}
 
 	err := app.SendDailyTaskToSubscribedUsers()
-	if err != nil {
-		t.Errorf("Got unexprected error:%q", err)
-	}
+	assert.Equal(t, err, nil, "Got unexprected error from SendDailyTaskToSubscribedUsers")
+	httpMock.AssertNumberOfCalls(t, "Func", 2)
 }
 
 func TestSendDailyTaskToSubscribedUsersError(t *testing.T) {
-	storageController, _, app := getTestApp()
-	loc, _ := time.LoadLocation("US/Pacific")
-	now := time.Now().In(loc)
-	taskDateID := common.GetDateID(now)
+	httpMock, storageController, _, app := getTestApp()
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1127),
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1127"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1126),
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1126"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1121),
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1121"))},
+		tests.ErrBypassTest,
+	).Times(3)
+	httpMock.On(
+		"Func",
+		"https://api.telegram.org/bot/sendMessage",
+		"application/json",
+		getTodaySendMessageString(1120),
+	).Return(
+		&http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader("1120"))},
+		nil,
+	).Times(3)
+	taskDateID := common.GetDateIDForNow()
 	storageController.tasks[taskDateID] = &common.BotLeetCodeTask{
 		DateID: taskDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
@@ -275,55 +267,42 @@ func TestSendDailyTaskToSubscribedUsersError(t *testing.T) {
 	}
 
 	err := app.SendDailyTaskToSubscribedUsers()
-	if err != nil {
-		t.Errorf("Got unexprected error:%q", err)
-	}
-
-	count := map[string]int{}
-	for _, s := range MockHTTPPostRequests {
-		count[s]++
-	}
-
-	awaited := map[string]int{
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1120,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": 1,
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": 1,
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1127,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": 3,
-		"{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1121,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210927\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}": 3,
-	}
-	if !reflect.DeepEqual(count, awaited) {
-		t.Errorf("awaited requests to TelegramAPI incorrect:\n%v\ncorrect one:\n%v\n", count, awaited)
-	}
+	assert.Equal(t, err, nil, "Unexprected error from SendDailyTaskToSubscribedUsers")
+	httpMock.AssertExpectations(t)
 }
 
 func TestSendDailyTaskToSubscribedUsersWithoutTasks(t *testing.T) {
-	storageController, leetcodeClient, app := getTestApp()
+	httpMock, storageController, leetcodeClient, app := getTestApp()
 	taskDateID := common.GetDateIDForNow()
 	storageController.failedTaskID = taskDateID
-	leetcodeClient.failedTaskID = taskDateID
+	leetcodeClient.On(
+		"GetDailyTask",
+		taskDateID,
+	).Return(
+		leetcodeclient.LeetCodeTask{},
+		tests.ErrBypassTest,
+	).Times(1)
 
 	err := app.SendDailyTaskToSubscribedUsers()
-	if err != ErrBypassTest {
-		t.Errorf("Got unexprected error:%q", err)
-	}
-	awaitedCalls := []string{fmt.Sprintf("GetDailyTask %d", taskDateID)}
-	if !reflect.DeepEqual(leetcodeClient.callsJournal, awaitedCalls) {
-		t.Errorf("Wrong calls list of leetcodeclient:\n%q\nshould be:%q", leetcodeClient.callsJournal, awaitedCalls)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexprected error from SendDailyTaskToSubscribedUsers")
+	leetcodeClient.AssertExpectations(t)
+	httpMock.AssertExpectations(t)
+}
 
-	count := map[string]int{}
-	for _, s := range MockHTTPPostRequests {
-		fmt.Println("S: ", s)
-		count[s]++
-	}
+func TestSendDailyTaskToSubscribedUsersWithErrorOnUsersList(t *testing.T) {
+	httpMock, storageController, leetcodeClient, app := getTestApp()
+	taskDateID := common.GetDateIDForNow()
+	storageController.failedTaskID = taskDateID
+	storageController.getSubscribedUsersMustFail = true
 
-	awaited := map[string]int{}
-	if !reflect.DeepEqual(count, awaited) {
-		t.Errorf("awaited requests to TelegramAPI incorrect:\n%v\ncorrect one:\n%v\n", count, awaited)
-	}
+	err := app.SendDailyTaskToSubscribedUsers()
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexprected error from SendDailyTaskToSubscribedUsers")
+	leetcodeClient.AssertExpectations(t)
+	httpMock.AssertExpectations(t)
 }
 
 func TestGetTodayTaskFromAllPossibleSourcesFromClient(t *testing.T) {
-	storageController, leetcodeClient, app := getTestApp()
+	_, storageController, leetcodeClient, app := getTestApp()
 	todayDateID := common.GetDateIDForNow()
 	testTask := common.BotLeetCodeTask{
 		DateID: todayDateID,
@@ -336,29 +315,29 @@ func TestGetTodayTaskFromAllPossibleSourcesFromClient(t *testing.T) {
 			Difficulty: "Easy",
 		},
 	}
-	leetcodeClient.tasks[todayDateID] = testTask.LeetCodeTask
+	leetcodeClient.On(
+		"GetDailyTask",
+		todayDateID,
+	).Return(
+		testTask.LeetCodeTask,
+		nil,
+	).Times(1)
 	task, err := app.GetTodayTaskFromAllPossibleSources()
-	if err != nil {
-		t.Errorf("Got unexprected error:%q", err)
-	}
+	assert.Equal(t, err, nil, "Unexprected error from GetTodayTaskFromAllPossibleSources")
+	assert.Equal(t, task, testTask, "Returned task not equal with expected")
 
-	if !reflect.DeepEqual(task, testTask) {
-		t.Errorf("Returned task:\n%q\nnot equal to expected:\n%q", task, testTask)
-	}
 	awaitedCalls := []string{fmt.Sprintf("GetTask %d", todayDateID), fmt.Sprintf("SaveTask %d", todayDateID)}
 	if !reflect.DeepEqual(storageController.callsJournal, awaitedCalls) {
 		t.Errorf("Storage controller calls:\n%q\nisn't equal to expected:\n%q\n", storageController.callsJournal, awaitedCalls)
 	}
 
 	awaitedCalls = []string{fmt.Sprintf("GetDailyTask %d", todayDateID)}
-	if !reflect.DeepEqual(leetcodeClient.callsJournal, awaitedCalls) {
-		t.Errorf("Wrong calls list of leetcodeclient:\n%q\nshould be:%q", leetcodeClient.callsJournal, awaitedCalls)
-	}
+	leetcodeClient.AssertExpectations(t)
 
 }
 
 func TestGetTodayTaskFromAllPossibleSourcesFromClientWithErrorFromStorage(t *testing.T) {
-	storageController, leetcodeClient, app := getTestApp()
+	_, storageController, leetcodeClient, app := getTestApp()
 	todayDateID := common.GetDateIDForNow()
 	testTask := common.BotLeetCodeTask{
 		DateID: todayDateID,
@@ -371,30 +350,27 @@ func TestGetTodayTaskFromAllPossibleSourcesFromClientWithErrorFromStorage(t *tes
 			Difficulty: "Easy",
 		},
 	}
-	leetcodeClient.tasks[todayDateID] = testTask.LeetCodeTask
+	leetcodeClient.On(
+		"GetDailyTask",
+		todayDateID,
+	).Return(
+		testTask.LeetCodeTask,
+		nil,
+	).Times(1)
 	storageController.failedTaskID = todayDateID
 	task, err := app.GetTodayTaskFromAllPossibleSources()
-	if err != ErrBypassTest {
-		t.Errorf("Got unexprected error:%q", err)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexprected error from GetTodayTaskFromAllPossibleSources")
+	assert.Equal(t, task, testTask, "Returned task not equal with expected")
 
-	if !reflect.DeepEqual(task, testTask) {
-		t.Errorf("Returned task:\n%q\nnot equal to expected:\n%q", task, testTask)
-	}
 	awaitedCalls := []string{fmt.Sprintf("GetTask %d", todayDateID), fmt.Sprintf("SaveTask %d", todayDateID)}
 	if !reflect.DeepEqual(storageController.callsJournal, awaitedCalls) {
 		t.Errorf("Storage controller calls:\n%q\nisn't equal to expected:\n%q\n", storageController.callsJournal, awaitedCalls)
 	}
-
-	awaitedCalls = []string{fmt.Sprintf("GetDailyTask %d", todayDateID)}
-	if !reflect.DeepEqual(leetcodeClient.callsJournal, awaitedCalls) {
-		t.Errorf("Wrong calls list of leetcodeclient:\n%q\nshould be:%q", leetcodeClient.callsJournal, awaitedCalls)
-	}
-
+	leetcodeClient.AssertExpectations(t)
 }
 
 func TestGetTodayTaskFromAllPossibleSourcesFromStorage(t *testing.T) {
-	storageController, leetcodeClient, app := getTestApp()
+	_, storageController, leetcodeClient, app := getTestApp()
 	todayDateID := common.GetDateIDForNow()
 	testTask := common.BotLeetCodeTask{
 		DateID: todayDateID,
@@ -409,20 +385,15 @@ func TestGetTodayTaskFromAllPossibleSourcesFromStorage(t *testing.T) {
 	}
 	storageController.tasks[todayDateID] = &testTask
 	task, err := app.GetTodayTaskFromAllPossibleSources()
-	if err != nil {
-		t.Errorf("Got unexprected error:%q", err)
-	}
+	assert.Equal(t, err, nil, "Unexprected error from GetTodayTaskFromAllPossibleSources")
+	assert.Equal(t, task, testTask, "Returned task not equal with expected")
+	assert.Equal(t, storageController.callsJournal, []string{fmt.Sprintf("GetTask %d", todayDateID)}, "Unexpected storageController calls journal")
+	leetcodeClient.AssertExpectations(t)
+}
 
-	if !reflect.DeepEqual(task, testTask) {
-		t.Errorf("Returned task:\n%q\nnot equal to expected:\n%q", task, testTask)
-	}
-
-	awaitedCalls := []string{fmt.Sprintf("GetTask %d", todayDateID)}
-	if !reflect.DeepEqual(storageController.callsJournal, awaitedCalls) {
-		t.Errorf("Storage controller calls:\n%q\nisn't equal to expected:\n%q\n", storageController.callsJournal, awaitedCalls)
-	}
-
-	if len(leetcodeClient.callsJournal) != 0 {
-		t.Errorf("Wrong calls list of leetcodeclient:\n%q\nshould be empty", leetcodeClient.callsJournal)
-	}
+func TestNewApplication(t *testing.T) {
+	app := NewApplication()
+	assert.NotNil(t, app.leetcodeAPIClient, "leetcodeAPIClient must be set in constructor")
+	assert.NotNil(t, app.storageController, "storageController must be set in constructor")
+	assert.NotNil(t, app.PostFunc, "PostFunc must be set in constructor")
 }

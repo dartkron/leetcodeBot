@@ -1,17 +1,15 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"testing"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v2/tests"
+	"github.com/stretchr/testify/assert"
 )
-
-var ErrBypassTest error = errors.New("test bypass error")
 
 type MockTasksStorekeeper struct {
 	tasks        map[uint64]common.BotLeetCodeTask
@@ -22,7 +20,7 @@ type MockTasksStorekeeper struct {
 func (k *MockTasksStorekeeper) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("getTask %d", dateID))
 	if dateID == k.IDToFail {
-		return common.BotLeetCodeTask{}, ErrBypassTest
+		return common.BotLeetCodeTask{}, tests.ErrBypassTest
 	}
 	if task, ok := k.tasks[dateID]; ok {
 		return task, nil
@@ -32,7 +30,7 @@ func (k *MockTasksStorekeeper) getTask(dateID uint64) (common.BotLeetCodeTask, e
 func (k *MockTasksStorekeeper) saveTask(task common.BotLeetCodeTask) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("saveTask %d", task.DateID))
 	if task.DateID == k.IDToFail {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	k.tasks[task.DateID] = task
 	return nil
@@ -48,7 +46,7 @@ type MockUsersStorekeeper struct {
 func (k *MockUsersStorekeeper) getUser(userID uint64) (common.User, error) {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("getUser %d", userID))
 	if userID == k.IDToFail {
-		return common.User{}, ErrBypassTest
+		return common.User{}, tests.ErrBypassTest
 	}
 	if user, ok := k.users[userID]; ok {
 		return *user, nil
@@ -59,7 +57,7 @@ func (k *MockUsersStorekeeper) getUser(userID uint64) (common.User, error) {
 func (k *MockUsersStorekeeper) saveUser(user common.User) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("saveUser %d", user.ID))
 	if user.ID == k.IDToFail {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	k.users[user.ID] = &user
 	return nil
@@ -68,7 +66,7 @@ func (k *MockUsersStorekeeper) saveUser(user common.User) error {
 func (k *MockUsersStorekeeper) subscribeUser(userID uint64) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("subscribeUser %d", userID))
 	if userID == k.IDToFail {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	if user, ok := k.users[userID]; ok {
 		user.Subscribed = true
@@ -81,7 +79,7 @@ func (k *MockUsersStorekeeper) subscribeUser(userID uint64) error {
 func (k *MockUsersStorekeeper) unsubscribeUser(userID uint64) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("unsubscribeUser %d", userID))
 	if userID == k.IDToFail {
-		return ErrBypassTest
+		return tests.ErrBypassTest
 	}
 	if user, ok := k.users[userID]; ok {
 		user.Subscribed = false
@@ -94,7 +92,7 @@ func (k *MockUsersStorekeeper) unsubscribeUser(userID uint64) error {
 func (k *MockUsersStorekeeper) getSubscribedUsers() ([]common.User, error) {
 	k.callsJournal = append(k.callsJournal, "getSubscribedUsers")
 	if k.getSubscribedUsersMustFail {
-		return []common.User{}, ErrBypassTest
+		return []common.User{}, tests.ErrBypassTest
 	}
 	resp := []common.User{}
 	for _, user := range k.users {
@@ -107,15 +105,9 @@ func (k *MockUsersStorekeeper) getSubscribedUsers() ([]common.User, error) {
 
 func TestNewYDBandFileCacheController(t *testing.T) {
 	storageController := NewYDBandFileCacheController()
-	if storageController.tasksCache == nil {
-		t.Error("NewYDBandFileCacheController should set tasksCache")
-	}
-	if storageController.tasksDB == nil {
-		t.Error("NewYDBandFileCacheController should set tasksDB")
-	}
-	if storageController.usersDB == nil {
-		t.Error("NewYDBandFileCacheController should set usersDB")
-	}
+	assert.NotNil(t, storageController.tasksCache, "NewYDBandFileCacheController should set tasksCache")
+	assert.NotNil(t, storageController.tasksDB, "NewYDBandFileCacheController should set tasksDB")
+	assert.NotNil(t, storageController.usersDB, "NewYDBandFileCacheController should set usersDB")
 }
 
 func TestNotConfiguredStorage(t *testing.T) {
@@ -123,23 +115,13 @@ func TestNotConfiguredStorage(t *testing.T) {
 	storageController.tasksCache = nil
 	storageController.tasksDB = nil
 	storageController.usersDB = nil
-	if storageController.UnsubscribeUser(3435) != ErrNoActiveUsersStorage {
-		t.Errorf("UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	}
-	if storageController.SubscribeUser(common.User{}) != ErrNoActiveUsersStorage {
-		t.Errorf("SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	}
-	if _, err := storageController.GetSubscribedUsers(); err != ErrNoActiveUsersStorage {
-		t.Errorf("GetSubscribedUsers should return ErrNoActiveUsersStorage when users storage isn't set")
-	}
-	err := storageController.SaveTask(common.BotLeetCodeTask{})
-	if err != nil {
-		t.Errorf("If task storage configured, SaveTask shouln't return error")
-	}
+	assert.Equal(t, storageController.UnsubscribeUser(3435), ErrNoActiveUsersStorage, "UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
+	assert.Equal(t, storageController.SubscribeUser(common.User{}), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
+	_, err := storageController.GetSubscribedUsers()
+	assert.Equal(t, err, ErrNoActiveUsersStorage, "GetSubscribedUsers should return ErrNoActiveUsersStorage when users storage isn't set")
+	assert.Nil(t, storageController.SaveTask(common.BotLeetCodeTask{}), "Unexpected error from SaveTask with unconfigured storage")
 	_, err = storageController.GetTask(12312)
-	if err != ErrNoSuchTask {
-		t.Errorf("If task storage configured, ErrNoSuchTask error should be returned")
-	}
+	assert.Equal(t, err, ErrNoSuchTask, "Unexpected error from GetTask with unconfigured storage")
 }
 
 func getTestController() (*YDBandFileCacheController, *MockTasksStorekeeper, *MockTasksStorekeeper) {
@@ -197,73 +179,37 @@ func TestGetTaskFromCache(t *testing.T) {
 	storageController, cacheStorage, DBStorage := getTestController()
 	// Get task from cache
 	task, err := storageController.GetTask(12345)
-	if err != nil {
-		t.Errorf("No error awaited on existing task from cache, but got %q", err)
-	}
-	if !reflect.DeepEqual(task, cacheStorage.tasks[12345]) {
-		t.Errorf("Returned task not equal to what we are waited from cache:\n%q\ngot:\n%q\n", cacheStorage.tasks[12345], task)
-	}
-	if len(DBStorage.callsJournal) != 0 {
-		t.Errorf("Error: database called %d times, when task persists in cache", len(DBStorage.callsJournal))
-	}
-	awaitedCallsJournal := []string{"getTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("Cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
+	assert.Nil(t, err, "Unexpected GetTask error")
+	assert.Equal(t, task, cacheStorage.tasks[12345], "Recieved task differs with task in storage")
+	assert.Empty(t, DBStorage.callsJournal, "Datase shoudn't be called when task persists in the cache")
+	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12345"}, "Cache calls amount differ with expectations")
 }
 
 func TestGetTaskFromDBMissedInCache(t *testing.T) {
 	storageController, cacheStorage, DBStorage := getTestController()
 	// Get task from DB and check that it will be saved in cache
 	task, err := storageController.GetTask(12346)
-	if err != nil {
-		t.Errorf("No error awaited on existing task from db, but got %q", err)
+	assert.Nil(t, err, "Unexpected GetTask error")
+	assert.Equal(t, task, DBStorage.tasks[12346], "Recieved task differs with task in storage")
+	cacheTask, ok := cacheStorage.tasks[12346]
+	if assert.True(t, ok, "Returned task not saved to cache") {
+		assert.Equal(t, task, cacheTask, "Recieved task differs with task in cache")
 	}
-	if !reflect.DeepEqual(task, DBStorage.tasks[12346]) {
-		t.Errorf("Returned task not equal to what we are waited from cache:\n%q\ngot:\n%q\n", cacheStorage.tasks[12346], task)
-	}
-	if cacheTask, ok := cacheStorage.tasks[12346]; ok {
-		if !reflect.DeepEqual(task, cacheTask) {
-			t.Errorf("Returned task not equal to what we saved to cache:\n%q\ngot in cache:\n%q\n", task, cacheTask)
-		}
-	} else {
-		t.Errorf("Returned task is not saved to cache")
-	}
-	awaitedCallsJournal := []string{"getTask 12346"}
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("Cache calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
-	awaitedCallsJournal = []string{"getTask 12346", "saveTask 12346"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("Cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, DBStorage.callsJournal, []string{"getTask 12346"}, "DB calls differ with expectations")
+	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12346", "saveTask 12346"}, "Cache calls differ with expectations")
 }
 
 func TestGetTaskFromDBWithBrokenCache(t *testing.T) {
 	storageController, cacheStorage, DBStorage := getTestController()
-
 	// This ID persists in cache and in DB. Now we should get it from db and not save to the cache
 	cacheStorage.IDToFail = 12345
 	originalCacheTask := cacheStorage.tasks[12345]
 	task, err := storageController.GetTask(12345)
-	if err != nil {
-		t.Errorf("No error awaited on existing task from db, but got %q", err)
-	}
-	if !reflect.DeepEqual(task, DBStorage.tasks[12345]) {
-		t.Errorf("Returned task not equal to what we are waited from cache:\n%q\ngot:\n%q\n", cacheStorage.tasks[12346], task)
-	}
-	if !reflect.DeepEqual(originalCacheTask, cacheStorage.tasks[12345]) {
-		t.Errorf("Task in cache were updated. Was:\n%q\nbecome:\n%q\n", originalCacheTask, cacheStorage.tasks[12346])
-	}
-	awaitedCallsJournal := []string{"getTask 12345"}
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
-	awaitedCallsJournal = []string{"getTask 12345", "saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("Cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Nil(t, err, "Unexpected GetTask error")
+	assert.Equal(t, task, DBStorage.tasks[12345], "Recieved task differs with task in storage")
+	assert.Equal(t, originalCacheTask, cacheStorage.tasks[12345], "Task was updated in cache, but shouldn't")
+	assert.Equal(t, DBStorage.callsJournal, []string{"getTask 12345"}, "DB calls differ with expectations")
+	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12345", "saveTask 12345"}, "Cache calls differ with expectations")
 }
 
 func TestSaveTaskToDBAndCache(t *testing.T) {
@@ -272,33 +218,17 @@ func TestSaveTaskToDBAndCache(t *testing.T) {
 	delete(cacheStorage.tasks, 12345)
 	delete(DBStorage.tasks, 12345)
 	err := storageController.SaveTask(taskToSave)
-	if err != nil {
-		t.Errorf("No error awaited on saving task from db and cache, but got %q", err)
+	assert.Nil(t, err, "Unexpected SaveTask error")
+	task, ok := cacheStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in cache after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Task saved in cache differ with sent one")
 	}
-	if task, ok := cacheStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in cache task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in cache after SaveTask")
+	task, ok = DBStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in database after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Task saved in storage differ with sent one")
 	}
-
-	if task, ok := DBStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in DB task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in DB after SaveTask")
-	}
-
-	awaitedCallsJournal := []string{"saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, cacheStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected cache calls journal")
+	assert.Equal(t, DBStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected DB calls journal")
 }
 
 func TestSaveTaskWithBrokenCache(t *testing.T) {
@@ -308,29 +238,15 @@ func TestSaveTaskWithBrokenCache(t *testing.T) {
 	delete(DBStorage.tasks, 12345)
 	cacheStorage.IDToFail = 12345
 	err := storageController.SaveTask(taskToSave)
-	if err != nil {
-		t.Errorf("No error awaited on saving task to db and cache, but got %q", err)
+	assert.Nil(t, err, "Unexpected SaveTask error")
+	_, ok := cacheStorage.tasks[12345]
+	assert.False(t, ok, "The task has been saved to the broken cache?!")
+	task, ok := DBStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in DB after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Saved in DB task is not equal with the sent one")
 	}
-	if _, ok := cacheStorage.tasks[12345]; ok {
-		t.Errorf("Task saved to broken cache?!")
-	}
-
-	if task, ok := DBStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in DB task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in DB after SaveTask")
-	}
-
-	awaitedCallsJournal := []string{"saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, cacheStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected cache calls journal")
+	assert.Equal(t, DBStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected DB calls journal")
 }
 
 func TestSaveTaskWithBrokenDB(t *testing.T) {
@@ -340,31 +256,15 @@ func TestSaveTaskWithBrokenDB(t *testing.T) {
 	delete(DBStorage.tasks, 12345)
 	DBStorage.IDToFail = 12345
 	err := storageController.SaveTask(taskToSave)
-
-	if err != ErrBypassTest {
-		t.Errorf("ErrBypassTest awaited on saving task with broken DB, but got %q", err)
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SaveTask error")
+	_, ok := DBStorage.tasks[12345]
+	assert.False(t, ok, "Task saved to the broken DB?!")
+	task, ok := cacheStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in cache after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Saved in cache task is not equal with the sent one")
 	}
-
-	if _, ok := DBStorage.tasks[12345]; ok {
-		t.Errorf("Task saved to broken DB?!")
-	}
-
-	if task, ok := cacheStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in cache task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in cache after SaveTask")
-	}
-
-	awaitedCallsJournal := []string{"saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, cacheStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected cache calls journal")
+	assert.Equal(t, DBStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected DB calls journal")
 }
 
 func TestSaveTaskWithBrokenAll(t *testing.T) {
@@ -375,27 +275,13 @@ func TestSaveTaskWithBrokenAll(t *testing.T) {
 	DBStorage.IDToFail = 12345
 	cacheStorage.IDToFail = 12345
 	err := storageController.SaveTask(taskToSave)
-
-	if err != ErrBypassTest {
-		t.Errorf("ErrBypassTest awaited on saving task with broken all, but got %q", err)
-	}
-
-	if _, ok := DBStorage.tasks[12345]; ok {
-		t.Errorf("Task saved to broken DB?!")
-	}
-
-	if _, ok := cacheStorage.tasks[12345]; ok {
-		t.Errorf("Task saved to broken cache?!")
-	}
-
-	awaitedCallsJournal := []string{"saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unxpected SaveTask error")
+	_, ok := DBStorage.tasks[12345]
+	assert.False(t, ok, "Task saved to the broken DB?!")
+	_, ok = cacheStorage.tasks[12345]
+	assert.False(t, ok, "Task saved to the broken cache?!")
+	assert.Equal(t, cacheStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected cache call journal")
+	assert.Equal(t, DBStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected DB call journal")
 }
 
 func TestSaveTaskToDBAndReplace(t *testing.T) {
@@ -408,33 +294,16 @@ func TestSaveTaskToDBAndReplace(t *testing.T) {
 	taskToSave.Hints = []string{"New one"}
 
 	err := storageController.SaveTask(taskToSave)
-	if err != nil {
-		t.Errorf("No error awaited on saving task from db and cache, but got %q", err)
+	assert.Nil(t, err, "Unxpected SaveTask error")
+	task, ok := cacheStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in cache after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Saved in cache task is not equal with the sent one")
 	}
-	if task, ok := cacheStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in cache task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in cache after SaveTask")
+	task, ok = DBStorage.tasks[12345]
+	if assert.True(t, ok, "Task missed in DB after SaveTask") {
+		assert.Equal(t, task, taskToSave, "Saved in DB task is not equal with the sent one")
 	}
-
-	if task, ok := DBStorage.tasks[12345]; ok {
-		if !reflect.DeepEqual(task, taskToSave) {
-			t.Errorf("Saved in DB task is not equal with sent:\n%q\nsend:\n%q\n", task, taskToSave)
-		}
-	} else {
-		t.Errorf("Task missed in DB after SaveTask")
-	}
-
-	awaitedCallsJournal := []string{"saveTask 12345"}
-	if !reflect.DeepEqual(cacheStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("cache calls journal not equal with awaited. Got: %q, waited: %q", cacheStorage.callsJournal, awaitedCallsJournal)
-	}
-
-	if !reflect.DeepEqual(DBStorage.callsJournal, awaitedCallsJournal) {
-		t.Errorf("DB calls journal not equal with awaited. Got: %q, waited: %q", DBStorage.callsJournal, awaitedCallsJournal)
-	}
+	assert.Equal(t, cacheStorage.callsJournal, []string{"saveTask 12345"}, "Unexpected cache call journal")
 }
 
 func getTestUsersStorekeeper() *MockUsersStorekeeper {
@@ -501,22 +370,15 @@ func TestGetSubscribedUsers(t *testing.T) {
 			}
 		}
 		list, err := storageController.GetSubscribedUsers()
-		if err != nil {
-			t.Errorf("Error returned on GetSubscribedUsers: %q", err)
-		}
+		assert.Nil(t, err, "Unexpected GetSubscribedUsers error")
 		sort.Slice(list, func(i, j int) bool {
 			return list[i].ID < list[j].ID
 		})
 		sort.Slice(awaitedList, func(i, j int) bool {
 			return awaitedList[i].ID < awaitedList[j].ID
 		})
-		if !reflect.DeepEqual(list, awaitedList) {
-			t.Errorf("Awaited following list of users\n%v\nbut\n%v\nreturned", awaitedList, list)
-		}
-		callList := []string{"getSubscribedUsers"}
-		if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-			t.Errorf("Call list is wrong:\n%v\nawaited:\n%v\n", usersStore.callsJournal, callList)
-		}
+		assert.Equal(t, list, awaitedList, "Unxpected users list from GetSubscribedUsers")
+		assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers"}, "Unexpected users store call list")
 	}
 }
 
@@ -527,16 +389,9 @@ func TestGetSubscribedUsersWithError(t *testing.T) {
 	}
 	usersStore.getSubscribedUsersMustFail = true
 	list, err := storageController.GetSubscribedUsers()
-	if err != ErrBypassTest {
-		t.Errorf("ErrBypassTest error wawited from GetSubscribedUsers but %q returned", err)
-	}
-	if !reflect.DeepEqual(list, []common.User{}) {
-		t.Errorf("On error empty list should be returned but got following:\n%v\n", list)
-	}
-	callList := []string{"getSubscribedUsers"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Call list is wrong:\n%v\nawaited:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected GetSubscribedUsers error")
+	assert.Equal(t, list, []common.User{}, "Empty list should be returned from GetSubscribedUsers on error")
+	assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserNew(t *testing.T) {
@@ -553,17 +408,10 @@ func TestSubscribeUserNew(t *testing.T) {
 		Subscribed: false,
 	}
 	err := storageController.SubscribeUser(newUser)
-	if err != nil {
-		t.Errorf("Error returned on SubscribeUser: %q", err)
-	}
+	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	newUser.Subscribed = true
-	if !reflect.DeepEqual(*usersStore.users[1000], newUser) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1000], newUser)
-	}
-	callList := []string{"getUser 1000", "saveUser 1000"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, *usersStore.users[1000], newUser, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1000", "saveUser 1000"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserOld(t *testing.T) {
@@ -573,17 +421,10 @@ func TestSubscribeUserOld(t *testing.T) {
 	}
 	user := *usersStore.users[1124]
 	err := storageController.SubscribeUser(user)
-	if err != nil {
-		t.Errorf("Error returned on SubscribeUser: %q", err)
-	}
+	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = true
-	if !reflect.DeepEqual(*usersStore.users[1124], user) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1124], user)
-	}
-	callList := []string{"getUser 1124", "subscribeUser 1124"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", "subscribeUser 1124"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserAlreadySubscribed(t *testing.T) {
@@ -594,17 +435,9 @@ func TestSubscribeUserAlreadySubscribed(t *testing.T) {
 	usersStore.users[1124].Subscribed = true
 	userToSend := *usersStore.users[1124]
 	err := storageController.SubscribeUser(userToSend)
-	if err != ErrUserAlreadySubscribed {
-		t.Errorf("ErrUserAlreadySubscribed error awaited on SubscribeUser but returned: %q", err)
-	}
-
-	if !reflect.DeepEqual(*usersStore.users[1124], userToSend) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1124], userToSend)
-	}
-	callList := []string{"getUser 1124"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, ErrUserAlreadySubscribed, "Unexpected SubscribeUser error")
+	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserWithError(t *testing.T) {
@@ -615,18 +448,9 @@ func TestSubscribeUserWithError(t *testing.T) {
 	usersStore.IDToFail = 1124
 	userToSend := *usersStore.users[1124]
 	err := storageController.SubscribeUser(userToSend)
-	if err != ErrBypassTest {
-		t.Errorf("ErrBypassTest error awaited on SubscribeUser but returned: %q", err)
-	}
-
-	if !reflect.DeepEqual(*usersStore.users[1124], userToSend) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1124], userToSend)
-	}
-
-	callList := []string{"getUser 1124"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SubscribeUser error")
+	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
 }
 
 func TestUnsubscribeUserNew(t *testing.T) {
@@ -635,13 +459,8 @@ func TestUnsubscribeUserNew(t *testing.T) {
 		usersDB: usersStore,
 	}
 	err := storageController.UnsubscribeUser(1000)
-	if err != ErrUserAlreadyUnsubscribed {
-		t.Errorf("Error returned on UnsubscribeUser: %q", err)
-	}
-	callList := []string{"getUser 1000"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, ErrUserAlreadyUnsubscribed, "Unexpected SubscribeUser error")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1000"}, "Unexpected users store call list")
 }
 
 func TestUnsubscribeUserOldNotSubscribed(t *testing.T) {
@@ -651,17 +470,9 @@ func TestUnsubscribeUserOldNotSubscribed(t *testing.T) {
 	}
 	user := *usersStore.users[1124]
 	err := storageController.UnsubscribeUser(1124)
-	if err != ErrUserAlreadyUnsubscribed {
-		t.Errorf("Error returned on UnsubscribeUser: %q", err)
-	}
-
-	if !reflect.DeepEqual(*usersStore.users[1124], user) {
-		t.Errorf("Stored user changed on unsubscring attemp:\n%v\nbut before was:\n%v\n", *usersStore.users[1124], user)
-	}
-	callList := []string{"getUser 1124"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, ErrUserAlreadyUnsubscribed, "Unexpected SubscribeUser error")
+	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
 }
 
 func TestUnsubscribeUserAlreadySubscribed(t *testing.T) {
@@ -671,17 +482,10 @@ func TestUnsubscribeUserAlreadySubscribed(t *testing.T) {
 	}
 	user := *usersStore.users[1126]
 	err := storageController.UnsubscribeUser(1126)
-	if err != nil {
-		t.Errorf("Error returned on SubscribeUser: %q", err)
-	}
+	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = false
-	if !reflect.DeepEqual(*usersStore.users[1126], user) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1126], user)
-	}
-	callList := []string{"getUser 1126", "unsubscribeUser 1126"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, *usersStore.users[1126], user, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1126", "unsubscribeUser 1126"}, "Unexpected users store call list")
 }
 
 func TestUnsubscribeUserWithError(t *testing.T) {
@@ -692,16 +496,7 @@ func TestUnsubscribeUserWithError(t *testing.T) {
 	usersStore.IDToFail = 1124
 	userToSend := *usersStore.users[1124]
 	err := storageController.UnsubscribeUser(1124)
-	if err != ErrBypassTest {
-		t.Errorf("ErrBypassTest error awaited on SubscribeUser but returned: %q", err)
-	}
-
-	if !reflect.DeepEqual(*usersStore.users[1124], userToSend) {
-		t.Errorf("Stored user differ with sent one:\n%v\nsent one:\n%v\n", *usersStore.users[1124], userToSend)
-	}
-
-	callList := []string{"getUser 1124"}
-	if !reflect.DeepEqual(usersStore.callsJournal, callList) {
-		t.Errorf("Wrong call list:\n%v\nbut should be:\n%v\n", usersStore.callsJournal, callList)
-	}
+	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SubscribeUser error")
+	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
 }

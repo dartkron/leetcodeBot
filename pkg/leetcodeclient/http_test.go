@@ -1,53 +1,14 @@
 package leetcodeclient
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/dartkron/leetcodeBot/v2/tests/mocks"
+	"github.com/stretchr/testify/assert"
 )
-
-type httpResponse struct {
-	response *http.Response
-	err      error
-}
-
-var ErrWorngContentType = errors.New("content type should be \"application/json\"")
-
-func MockHTTPPost(url string, contentType string, body io.Reader) (*http.Response, error) {
-	if contentType != "application/json" {
-		return &http.Response{}, ErrWorngContentType
-	}
-	request, err := io.ReadAll(body)
-	requestString := string(request)
-	if err != nil {
-		return &http.Response{}, err
-	}
-	knownRequests := map[string]httpResponse{
-		"{\"operationName\":\"Test operation\",\"variables\":{\"testVariableName\":\"testVariableVal\"},\"query\":\"Some test query\"}\n": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("0"))},
-		},
-		"{\"operationName\":\"\",\"variables\":null,\"query\":\"Query for bypass error\"}\n": {
-			response: &http.Response{},
-			err:      ErrBypassTest,
-		},
-		"{\"operationName\":\"Test operation no variables\",\"variables\":{},\"query\":\"Some test query1\"}\n": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1"))},
-		},
-		"{\"operationName\":\"Test operation two variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\"},\"query\":\"Some test query2\"}\n": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("2"))},
-		},
-		"{\"operationName\":\"Test operation three variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\",\"testVariableName2\":\"testVariableVal2\"},\"query\":\"Some test query3\"}\n": {
-			response: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("3"))},
-		},
-	}
-	if response, ok := knownRequests[requestString]; ok {
-		return response.response, response.err
-	}
-
-	return &http.Response{StatusCode: http.StatusInternalServerError}, http.ErrBodyNotAllowed
-}
 
 type testRequest struct {
 	req  graphQlRequest
@@ -57,7 +18,54 @@ type testRequest struct {
 
 func TestRequestGraphQl(t *testing.T) {
 	requester := newHTTPGraphQlRequester()
-	requester.PostFunc = MockHTTPPost
+	httpMock := mocks.MockHTTPPost{}
+	httpMock.On(
+		"Func",
+		"https://leetcode.com/graphql",
+		"application/json",
+		"{\"operationName\":\"Test operation\",\"variables\":{\"testVariableName\":\"testVariableVal\"},\"query\":\"Some test query\"}\n",
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("0"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://leetcode.com/graphql",
+		"application/json",
+		"{\"operationName\":\"\",\"variables\":null,\"query\":\"Query for bypass error\"}\n",
+	).Return(
+		&http.Response{},
+		ErrBypassTest,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://leetcode.com/graphql",
+		"application/json",
+		"{\"operationName\":\"Test operation no variables\",\"variables\":{},\"query\":\"Some test query1\"}\n",
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://leetcode.com/graphql",
+		"application/json",
+		"{\"operationName\":\"Test operation two variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\"},\"query\":\"Some test query2\"}\n",
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("2"))},
+		nil,
+	).Times(1)
+	httpMock.On(
+		"Func",
+		"https://leetcode.com/graphql",
+		"application/json",
+		"{\"operationName\":\"Test operation three variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\",\"testVariableName2\":\"testVariableVal2\"},\"query\":\"Some test query3\"}\n",
+	).Return(
+		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("3"))},
+		nil,
+	).Times(1)
+
+	requester.PostFunc = httpMock.Func
 	testCases := []testRequest{
 		{
 			req: graphQlRequest{
@@ -102,12 +110,14 @@ func TestRequestGraphQl(t *testing.T) {
 
 	for _, testCase := range testCases {
 		resp, err := requester.requestGraphQl(testCase.req)
-		if err != testCase.err {
-			t.Errorf("Got unwaiter error %q, but %q awaited", err, testCase.err)
-		}
-		if string(resp) != testCase.resp {
-			t.Errorf("Wrong response, awaited:\n%q\nbut recieved:\n%q\n", string(resp), testCase.resp)
-		}
+		assert.Equal(t, err, testCase.err)
+		assert.Equal(t, string(resp), testCase.resp)
 	}
+	httpMock.AssertExpectations(t)
+}
 
+func TestNewHTTPGraphQlRequester(t *testing.T) {
+	requester := newHTTPGraphQlRequester()
+	assert.NotNil(t, requester.PostFunc, "PostFunc should be set in conctructor")
+	assert.NotEmpty(t, requester.GraphQlURL, "GraphQlURL should be set in conctructor")
 }

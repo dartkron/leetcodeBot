@@ -313,5 +313,6 @@ func NewApplication() *Application {
 	return &Application{
 		storageController: storage.NewYDBandFileCacheController(),
 		leetcodeAPIClient: leetcodeclient.NewLeetCodeGraphQlClient(),
+		PostFunc:          http.Post,
 	}
 }

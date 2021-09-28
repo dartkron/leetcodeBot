@@ -3,6 +3,8 @@ package common
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReplaceImgTagWithA(t *testing.T) {
@@ -10,12 +12,8 @@ func TestReplaceImgTagWithA(t *testing.T) {
 		"test<img src=\"http://mytest.com/test.png\"/>test<img src=\"http://anothermytest.org/pic.jpg\"/>test": "test\n<a href=\"http://mytest.com/test.png\">Picture 0</a>test\n<a href=\"http://anothermytest.org/pic.jpg\">Picture 1</a>test",
 	}
 	for source, result := range tests {
-
 		calculatedResult := ReplaceImgTagWithA(source)
-		if calculatedResult != result {
-			t.Fatalf("Wrong transform, got %s, but %s awaited", calculatedResult, result)
-		}
-
+		assert.Equal(t, calculatedResult, result, "Unexpected ReplaceImgTagWithA transformation")
 	}
 }
 
@@ -34,9 +32,7 @@ func TestGetDateId(t *testing.T) {
 	}
 	for dataPart, result := range testData {
 		calculatedResult := GetDateID(time.Date(dataPart.year, time.Month(dataPart.month), dataPart.day, 0, 0, 0, 0, loc))
-		if calculatedResult != result {
-			t.Errorf("%d awaited, but got %d", result, calculatedResult)
-		}
+		assert.Equal(t, calculatedResult, result, "Unexpected GetDateID response")
 	}
 }
 
@@ -72,9 +68,7 @@ func TestRemoveUnsuppotedTags(t *testing.T) {
 	}
 	for testCase, result := range cases {
 		calculatedResult := RemoveUnsupportedTags(testCase)
-		if calculatedResult != result {
-			t.Errorf("%s case proceeded into %s but %s awaited", testCase, calculatedResult, result)
-		}
+		assert.Equal(t, calculatedResult, result, "Unexpected RemoveUnsupportedTags transformation")
 	}
 }
 
@@ -83,9 +77,7 @@ func TestGetTaskText(t *testing.T) {
 	task.Title = "Test TaSk title"
 	task.Content = "VeRy tEsT TaSk CoNTEnt\r"
 	waited := "<strong>Test TaSk title</strong>\n\nVeRy tEsT TaSk CoNTEnt\r"
-	if waited != task.GetTaskText() {
-		t.Errorf("%q got from GetTaskText but %q awaited", task.GetTaskText(), waited)
-	}
+	assert.Equal(t, waited, task.GetTaskText(), "Unexpected GetTaskText response")
 }
 
 type callbackTestCase struct {
@@ -102,10 +94,9 @@ func TestGetMarshalledCallbackData(t *testing.T) {
 		{dateID: 10, hintID: 22, dataType: DifficultyRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":1,\"hint\":0}"},
 	}
 	for _, testCase := range testCases {
-		result, _ := getMarshalledCallbackData(testCase.dateID, testCase.hintID, testCase.dataType)
-		if result != testCase.awaitingResult {
-			t.Errorf("Awaited %q but got %q instead", testCase.awaitingResult, result)
-		}
+		result, err := getMarshalledCallbackData(testCase.dateID, testCase.hintID, testCase.dataType)
+		assert.Nil(t, err, "Unexpected error from getMarshalledCallbackData")
+		assert.Equal(t, result, testCase.awaitingResult, "Unexpected getMarshalledCallbackData response")
 	}
 }
 
@@ -125,17 +116,13 @@ func TestGetInlineKeyboard(t *testing.T) {
 		{20030101, 563456, []string{"First hint", "Second hint", "Third hint", "Fourth hint", "Fifth hint", "Sixth hint", "First hint", "Second hint", "Third hint", "Fourth hint", "Fifth hint", "Sixth hint"},
 			"{\"inline_keyboard\":[[{\"text\":\"See task on LeetCode website\",\"url\":\"https://leetcode.com/explore/item/563456\"}],[{\"text\":\"Hint 1\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":0}\"},{\"text\":\"Hint 2\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":1}\"},{\"text\":\"Hint 3\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":2}\"},{\"text\":\"Hint 4\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":3}\"},{\"text\":\"Hint 5\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":4}\"}],[{\"text\":\"Hint 6\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":5}\"},{\"text\":\"Hint 7\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":6}\"},{\"text\":\"Hint 8\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":7}\"},{\"text\":\"Hint 9\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":8}\"},{\"text\":\"Hint 10\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":9}\"}],[{\"text\":\"Hint 11\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":10}\"},{\"text\":\"Hint 12\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":0,\\\"hint\\\":11}\"}],[{\"text\":\"Hint: Get the difficulty of the task\",\"callback_data\":\"{\\\"dateID\\\":\\\"20030101\\\",\\\"callback_type\\\":1,\\\"hint\\\":0}\"}]]}"},
 	}
-
 	for _, testCase := range testCases {
 		task := BotLeetCodeTask{DateID: testCase.DateID}
 		task.ItemID = testCase.ItemID
 		task.Hints = testCase.Hints
 		result := task.GetInlineKeyboard()
-		if result != testCase.awaitingResult {
-			t.Errorf("Awaited %q but got %q instead", testCase.awaitingResult, result)
-		}
+		assert.Equal(t, result, testCase.awaitingResult, "Unexpected GetInlineKeyboard response")
 	}
-
 }
 
 func TestFixTagsAndImages(t *testing.T) {
@@ -144,20 +131,9 @@ func TestFixTagsAndImages(t *testing.T) {
 	task.Content = "<ul> Test <img src=\"http://secret_image.com/image.png\"/>"
 	task.Hints = []string{"First </br>hint", "Second <ul>hint", "Third <li>hint"}
 	task.FixTagsAndImages()
-	awaitedTitle := "TestTitle"
-	if task.Title != awaitedTitle {
-		t.Errorf("Wrong fix got title:\n%q\nawaited:\n%q", task.Title, awaitedTitle)
-	}
-	awaitedContent := " Test \n<a href=\"http://secret_image.com/image.png\">Picture 0</a>"
-	if task.Content != awaitedContent {
-		t.Errorf("Wrong fix got content:\n%q\nawaited:\n%q", task.Content, awaitedContent)
-	}
-	awaitedHints := []string{"First hint", "Second hint", "Third  — hint"}
-	for i := range task.Hints {
-		if task.Hints[i] != awaitedHints[i] {
-			t.Errorf("%d %q", i, task.Hints)
-		}
-	}
+	assert.Equal(t, task.Title, "TestTitle", "Unexpected FixTagsAndImages transformation")
+	assert.Equal(t, task.Content, " Test \n<a href=\"http://secret_image.com/image.png\">Picture 0</a>", "Unexpected FixTagsAndImages transformation")
+	assert.Equal(t, task.Hints, []string{"First hint", "Second hint", "Third  — hint"}, "Unexpected FixTagsAndImages transformation")
 }
 
 func TestGetDifficultyNum(t *testing.T) {
@@ -171,9 +147,7 @@ func TestGetDifficultyNum(t *testing.T) {
 	task := BotLeetCodeTask{}
 	for key, val := range difToNum {
 		task.Difficulty = key
-		if task.GetDifficultyNum() != uint8(val) {
-			t.Errorf("%q difficuly awaited to be translated into %d number, but got %d instead", key, val, task.GetDifficultyNum())
-		}
+		assert.Equal(t, task.GetDifficultyNum(), uint8(val), "Wrong GetDifficultyNum response")
 	}
 }
 
@@ -188,8 +162,12 @@ func TestSetDifficultyFromNum(t *testing.T) {
 	task := BotLeetCodeTask{}
 	for key, val := range numToDif {
 		task.SetDifficultyFromNum(key)
-		if task.Difficulty != val {
-			t.Errorf("%d num awaited to be translated into %s difficuly, but got %s instead", key, val, task.Difficulty)
-		}
+		assert.Equal(t, task.Difficulty, val, "Unexpected SetDifficultyFromNum response")
 	}
+}
+
+func TestDateIDFunctions(t *testing.T) {
+	loc, _ := time.LoadLocation("US/Pacific")
+	now := time.Now().In(loc)
+	assert.Equal(t, GetDateID(now), GetDateIDForNow(), "GetDateIDForNow now equal to what it supposed to be")
 }

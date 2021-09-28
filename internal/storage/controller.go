@@ -99,7 +99,7 @@ func (s *YDBandFileCacheController) GetTask(dateID uint64) (common.BotLeetCodeTa
 		err = s.saveTaskToCache(task)
 		if err != nil {
 			// Have cache is a good idea, but no reason to stop show if it's broken
-			fmt.Printf("Error on geting task to cache: %q\n", err)
+			fmt.Printf("Error on saving task to cache:: %q\n", err)
 		}
 		return task, nil
 	}
@@ -110,7 +110,7 @@ func (s *YDBandFileCacheController) GetTask(dateID uint64) (common.BotLeetCodeTa
 func (s *YDBandFileCacheController) SaveTask(task common.BotLeetCodeTask) error {
 	err := s.saveTaskToCache(task)
 	if err != nil {
-		fmt.Println("Error on saving task from cache:", err)
+		fmt.Printf("Error on saving task to cache:: %q\n", err)
 	}
 	return s.saveTaskToDB(task)
 }
