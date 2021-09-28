@@ -70,7 +70,7 @@ type graphQlRequest struct {
 }
 
 type graphQlRequester interface {
-	requestGraphQl(request graphQlRequest) ([]byte, error)
+	requestGraphQl(graphQlRequest) ([]byte, error)
 }
 
 func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(date time.Time) ([]string, error) {
@@ -78,13 +78,12 @@ func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(date time.Time) ([]
 
 	cardSlug := c.getSlug(date)
 	chaptersReq.Variables = map[string]string{"cardSlug": cardSlug}
-	chaptersReq.Query = "query GetChaptersWithItems($cardSlug: String!) { chapters(cardSlug: $cardSlug) { items {id title type }}}"
-	request, err := c.transport.requestGraphQl(chaptersReq)
+	responseBytes, err := c.transport.requestGraphQl(chaptersReq)
 	if err != nil {
 		return []string{}, err
 	}
 	parsed := chaptersDesc{}
-	err = json.Unmarshal(request, &parsed)
+	err = json.Unmarshal(responseBytes, &parsed)
 	resp := []string{}
 	for _, week := range parsed.Data.Chapters {
 		for i, item := range week.Items {
@@ -99,10 +98,13 @@ func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(date time.Time) ([]
 
 func (c *LeetCodeGraphQlClient) getDailyTaskItemIDForDate(date time.Time) (string, error) {
 	forMonth, err := c.getDailyTaskItemsIdsForMonth(date)
+	if err != nil {
+		return "", err
+	}
 	if date.Day() > len(forMonth) {
 		return "", fmt.Errorf("can't get %d task for month %s. Only %d tasks isset", date.Day(), date.Month().String(), len(forMonth))
 	}
-	return forMonth[date.Day()-1], err
+	return forMonth[date.Day()-1], nil
 }
 
 // GetDailyTaskItemID retrieve itemId for task of the day on provided date
@@ -117,12 +119,12 @@ func (c *LeetCodeGraphQlClient) getSlug(date time.Time) string {
 func (c *LeetCodeGraphQlClient) getQuestionSlug(itemID string) (string, error) {
 	slugReq := c.getSlugReq
 	slugReq.Variables["itemId"] = itemID
-	request, err := c.transport.requestGraphQl(slugReq)
+	responseBytes, err := c.transport.requestGraphQl(slugReq)
 	if err != nil {
 		return "", err
 	}
 	parsed := titleSlugDesc{}
-	err = json.Unmarshal(request, &parsed)
+	err = json.Unmarshal(responseBytes, &parsed)
 	return parsed.Data.Item.Question.TitleSlug, err
 }
 
@@ -130,10 +132,10 @@ func (c *LeetCodeGraphQlClient) getQuestionSlug(itemID string) (string, error) {
 func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(itemID string) (LeetCodeTask, error) {
 	questionReq := c.getQuestionReq
 	questionSlug, err := c.getQuestionSlug(itemID)
-	questionReq.Variables["titleSlug"] = questionSlug
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
+	questionReq.Variables["titleSlug"] = questionSlug
 
 	responseBytes, err := c.transport.requestGraphQl(c.getQuestionReq)
 	if err != nil {
@@ -166,7 +168,10 @@ func NewLeetCodeGraphQlClient() *LeetCodeGraphQlClient {
 
 func newLeetCodeGraphQlClient(requester graphQlRequester) *LeetCodeGraphQlClient {
 	client := LeetCodeGraphQlClient{
-		getChaptersReq: graphQlRequest{OperationName: "GetChaptersWithItems"},
+		getChaptersReq: graphQlRequest{
+			OperationName: "GetChaptersWithItems",
+			Query:         "query GetChaptersWithItems($cardSlug: String!) { chapters(cardSlug: $cardSlug) { items {id title type }}}",
+		},
 		getSlugReq: graphQlRequest{
 			OperationName: "GetItem",
 			Variables:     make(map[string]string),

@@ -79,17 +79,19 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 		if err != nil {
 			fmt.Println("Got error on marshalling callback data:", err)
 		}
+
+		// 5 hints in the row
+		if len(listOfHints[level]) == 5 {
+			level++
+			listOfHints = append(listOfHints, []inlineButton{})
+		}
+
 		listOfHints[level] = append(
 			listOfHints[level],
 			inlineButton{
 				Text:         fmt.Sprintf("Hint %d", i+1),
 				CallbackData: string(callbackData),
 			})
-		// 5 hints in the row
-		if (i+1)%5 == 0 {
-			level++
-			listOfHints = append(listOfHints, []inlineButton{})
-		}
 	}
 	listOfHints = append([][]inlineButton{
 		{
@@ -154,9 +156,20 @@ func (task *BotLeetCodeTask) SetDifficultyFromNum(difficuty uint8) {
 		task.Difficulty = "Medium"
 	case hard:
 		task.Difficulty = "Hard"
-	case notSet:
+	default:
 		task.Difficulty = "Not known"
 	}
+}
+
+// GetDateInRightTimeZone returns time in corrent time zone for Leetcode
+func GetDateInRightTimeZone() time.Time {
+	loc, _ := time.LoadLocation("US/Pacific")
+	return time.Now().In(loc)
+}
+
+// GetDateIDForNow dateID for current time in correct time zone for Leetcode
+func GetDateIDForNow() uint64 {
+	return GetDateID(GetDateInRightTimeZone())
 }
 
 // GetDateID right provider of ID based on task Date. Persistent key.

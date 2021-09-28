@@ -3,12 +3,13 @@ package leetcodeclient
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
 type httpGraphQlRequester struct {
 	GraphQlURL string
+	PostFunc   func(string, string, io.Reader) (*http.Response, error)
 }
 
 func (requester *httpGraphQlRequester) requestGraphQl(request graphQlRequest) ([]byte, error) {
@@ -17,13 +18,16 @@ func (requester *httpGraphQlRequester) requestGraphQl(request graphQlRequest) ([
 	if err != nil {
 		return []byte{}, err
 	}
-	r, err := http.Post(requester.GraphQlURL, "application/json", b)
+	r, err := requester.PostFunc(requester.GraphQlURL, "application/json", b)
 	if err != nil {
 		return []byte{}, err
 	}
-	return ioutil.ReadAll(r.Body)
+	return io.ReadAll(r.Body)
 }
 
 func newHTTPGraphQlRequester() *httpGraphQlRequester {
-	return &httpGraphQlRequester{"https://leetcode.com/graphql"}
+	return &httpGraphQlRequester{
+		GraphQlURL: "https://leetcode.com/graphql",
+		PostFunc:   http.Post,
+	}
 }

@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/dartkron/leetcodeBot/v2/internal/storage"
@@ -91,6 +90,7 @@ func NewTelegramResponse() *TelegramResponse {
 type Application struct {
 	storageController storage.Controller
 	leetcodeAPIClient leetcodeclient.LeetcodeClient
+	PostFunc          func(string, string, io.Reader) (*http.Response, error)
 }
 
 // ProcessRequestBody parse body json and route request to handlers
@@ -211,8 +211,7 @@ func (app *Application) unsubscribeAction(request *TelegramRequest, response *Te
 // GetTodayTaskFromAllPossibleSources is the one func to rule them all
 // It's apperared because of necessary to share logic between reminder and bot
 func (app *Application) GetTodayTaskFromAllPossibleSources() (common.BotLeetCodeTask, error) {
-	loc, _ := time.LoadLocation("US/Pacific")
-	now := time.Now().In(loc)
+	now := common.GetDateInRightTimeZone()
 	taskDateID := common.GetDateID(now)
 	task, err := app.storageController.GetTask(taskDateID)
 	if err != nil {
@@ -241,10 +240,10 @@ func (app *Application) GetTodayTaskFromAllPossibleSources() (common.BotLeetCode
 // SendMessage sends message to particular user.
 func (app *Application) SendMessage(requestBody []byte) error {
 	tries := 0
-	buf := bytes.NewBuffer(requestBody)
 	for tries < 3 {
 		tries++
-		resp, err := http.Post(fmt.Sprintf(telegramAPIURL, os.Getenv("SENDING_TOKEN")), "application/json", buf)
+		buf := bytes.NewBuffer(requestBody)
+		resp, err := app.PostFunc(fmt.Sprintf(telegramAPIURL, os.Getenv("SENDING_TOKEN")), "application/json", buf)
 		if err != nil || resp.StatusCode >= 400 {
 			if tries == 3 {
 				return err
@@ -252,7 +251,7 @@ func (app *Application) SendMessage(requestBody []byte) error {
 			continue
 		}
 		// TODO: should we see what's inside the response?
-		_, _ = ioutil.ReadAll(resp.Body)
+		_, _ = io.ReadAll(resp.Body)
 		resp.Body.Close()
 		break
 	}

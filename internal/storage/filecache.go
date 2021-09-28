@@ -3,17 +3,20 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 )
 
+// fileCache is a tasksStockpile with local filesystem backend
 type fileCache struct {
-	path string
+	Path string
+	Mask string
 }
 
+// getTask from local fs from path based on Path + mask
 func (c *fileCache) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 	cachePath := c.getTaskCachePath(dateID)
 	cacheFile, err := os.Open(cachePath)
@@ -21,7 +24,7 @@ func (c *fileCache) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 		return common.BotLeetCodeTask{}, ErrNoSuchTask
 	}
 	defer cacheFile.Close()
-	bytes, err := ioutil.ReadAll(cacheFile)
+	bytes, err := io.ReadAll(cacheFile)
 	if err != nil {
 		return common.BotLeetCodeTask{}, err
 	}
@@ -30,20 +33,25 @@ func (c *fileCache) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 	return task, err
 }
 
+// saveTask to local fs cache storage
 func (c *fileCache) saveTask(task common.BotLeetCodeTask) error {
 	cachePath := c.getTaskCachePath(task.DateID)
 	bytesTask, err := json.Marshal(task)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(cachePath, bytesTask, 0644)
+	err = os.WriteFile(cachePath, bytesTask, 0644)
 	return err
 }
 
 func (c *fileCache) getTaskCachePath(dateID uint64) string {
-	return path.Join(c.path, fmt.Sprintf("task_%d.cache", dateID))
+	return path.Join(c.Path, fmt.Sprintf(c.Mask, dateID))
 }
 
+// NewfileCache construct default fileCacher
 func newFileCache() *fileCache {
-	return &fileCache{path: "/tmp/"}
+	return &fileCache{
+		Path: "/tmp/",
+		Mask: "task_%d.cache",
+	}
 }

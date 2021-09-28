@@ -17,7 +17,7 @@ const (
 	getTaskQuery = `
 	DECLARE $dateId AS Uint64;
 
-	SELECT title, text, questionId, hints, difficulty
+	SELECT title, text, questionId, itemId, hints, difficulty
 	FROM dailyQuestion
 	WHERE id = $dateId;
 	`
@@ -119,18 +119,20 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 		title      *string
 		text       *string
 		questionID *uint64
+		itemID     *uint64
 		hints      *string
 		difficulty *uint8
 	)
 
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
 
-	for res.NextResultSet(ctx, "title", "text", "questionId", "hints", "difficulty") {
+	for res.NextResultSet(ctx, "title", "text", "questionId", "itemId", "hints", "difficulty") {
 		for res.NextRow() {
 			err := res.Scan(
 				&title,
 				&text,
 				&questionID,
+				&itemID,
 				&hints,
 				&difficulty,
 			)
@@ -140,6 +142,7 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 			returnValue.Title = *title
 			returnValue.Content = *text
 			returnValue.QuestionID = *questionID
+			returnValue.ItemID = *itemID
 			returnValue.SetDifficultyFromNum(*difficulty)
 			err = json.Unmarshal([]byte(*hints), &returnValue.Hints)
 			if err != nil {
