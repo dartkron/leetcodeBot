@@ -83,30 +83,40 @@ func newYdbStorage() *ydbStorage {
 	}
 }
 
-func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
+func (y *ydbStorage) processQuery(res *table.Result, query string, queryParams *table.QueryParameters) (context.Context, error) {
 	ctx := context.Background()
 	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
 	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
+	connection, err := connect.New(
+		connectCtx,
+		connect.MustConnectionString(
+			fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
+		),
+	)
+	defer cancelFunc()
 	if err != nil {
-		return common.BotLeetCodeTask{}, err
+		return ctx, err
 	}
 	defer connection.Close()
 
-	var res *table.Result
-	err = table.Retry(
+	return ctx, table.Retry(
 		ctx,
 		connection.Table().Pool(),
 		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
 			_, res, err = s.Execute(ctx, y.txc,
-				getTaskQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
-				),
+				query,
+				queryParams,
 			)
 			return err
 		}),
 	)
+}
+
+func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
+	var res *table.Result
+	ctx, err := y.processQuery(res, getTaskQuery, table.NewQueryParameters(
+		table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
+	))
 	if err != nil {
 		return common.BotLeetCodeTask{}, err
 	}
@@ -157,65 +167,30 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 }
 
 func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return err
-	}
-	defer connection.Close()
-
 	marshalledHints, err := json.Marshal(task.Hints)
 	if err != nil {
 		return err
 	}
-
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, _, err = s.Execute(ctx, y.txc,
-				replaceTaskQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
-					table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
-					table.ValueParam("$itemId", ydb.Uint64Value(task.ItemID)),
-					table.ValueParam("$title", ydb.StringValue([]byte(task.Title))),
-					table.ValueParam("$content", ydb.StringValue([]byte(task.Content))),
-					table.ValueParam("$hints", ydb.StringValue(marshalledHints)),
-					table.ValueParam("$difficulty", ydb.Uint8Value(task.GetDifficultyNum())),
-				),
-			)
-			return err
-		}),
+	var res *table.Result
+	_, err = y.processQuery(res, replaceTaskQuery, table.NewQueryParameters(
+		table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
+		table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
+		table.ValueParam("$itemId", ydb.Uint64Value(task.ItemID)),
+		table.ValueParam("$title", ydb.StringValue([]byte(task.Title))),
+		table.ValueParam("$content", ydb.StringValue([]byte(task.Content))),
+		table.ValueParam("$hints", ydb.StringValue(marshalledHints)),
+		table.ValueParam("$difficulty", ydb.Uint8Value(task.GetDifficultyNum())),
+	),
 	)
 	return err
 }
 
 func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return common.User{}, err
-	}
-	defer connection.Close()
-
 	var res *table.Result
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, res, err = s.Execute(ctx, y.txc,
-				getUserQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$userId", ydb.Uint64Value(userID)),
-				),
-			)
-			return err
-		}),
+	ctx, err := y.processQuery(res, getUserQuery,
+		table.NewQueryParameters(
+			table.ValueParam("$userId", ydb.Uint64Value(userID)),
+		),
 	)
 	if err != nil {
 		return common.User{}, err
@@ -261,27 +236,8 @@ func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
 }
 
 func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return []common.User{}, err
-	}
-	defer connection.Close()
-
 	var res *table.Result
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, res, err = s.Execute(ctx, y.txc,
-				getSubscribedUsersQuery,
-				table.NewQueryParameters(),
-			)
-			return err
-		}),
-	)
+	ctx, err := y.processQuery(res, getSubscribedUsersQuery, table.NewQueryParameters())
 	if err != nil {
 		return []common.User{}, err
 	}
@@ -326,93 +282,33 @@ func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
 }
 
 func (y *ydbStorage) saveUser(user common.User) error {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return err
-	}
-	defer connection.Close()
-
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, _, err = s.Execute(ctx, y.txc,
-				saveUserQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$id", ydb.Uint64Value(user.ID)),
-					table.ValueParam("$chat_id", ydb.Uint64Value(user.ChatID)),
-					table.ValueParam("$firstname", ydb.StringValue([]byte(user.FirstName))),
-					table.ValueParam("$lastname", ydb.StringValue([]byte(user.LastName))),
-					table.ValueParam("$username", ydb.StringValue([]byte(user.Username))),
-					table.ValueParam("$subscribed", ydb.BoolValue(user.Subscribed)),
-				),
-			)
-			return err
-		}),
+	var res *table.Result
+	_, err := y.processQuery(res, saveUserQuery, table.NewQueryParameters(
+		table.ValueParam("$id", ydb.Uint64Value(user.ID)),
+		table.ValueParam("$chat_id", ydb.Uint64Value(user.ChatID)),
+		table.ValueParam("$firstname", ydb.StringValue([]byte(user.FirstName))),
+		table.ValueParam("$lastname", ydb.StringValue([]byte(user.LastName))),
+		table.ValueParam("$username", ydb.StringValue([]byte(user.Username))),
+		table.ValueParam("$subscribed", ydb.BoolValue(user.Subscribed)),
+	),
 	)
 	return err
 }
 
 func (y *ydbStorage) subscribeUser(userID uint64) error {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return err
-	}
-	defer connection.Close()
-
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, _, err = s.Execute(ctx, y.txc,
-				subscribeUserQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$userId", ydb.Uint64Value(userID)),
-				),
-			)
-			return err
-		}),
+	var res *table.Result
+	_, err := y.processQuery(res, subscribeUserQuery, table.NewQueryParameters(
+		table.ValueParam("$userId", ydb.Uint64Value(userID)),
+	),
 	)
 	return err
 }
 
 func (y *ydbStorage) unsubscribeUser(userID uint64) error {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := getConnection(connectCtx)
-	if err != nil {
-		return err
-	}
-	defer connection.Close()
-
-	err = table.Retry(
-		ctx,
-		connection.Table().Pool(),
-		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, _, err = s.Execute(ctx, y.txc,
-				unsubscribeUserQuery,
-				table.NewQueryParameters(
-					table.ValueParam("$userId", ydb.Uint64Value(userID)),
-				),
-			)
-			return err
-		}),
+	var res *table.Result
+	_, err := y.processQuery(res, unsubscribeUserQuery, table.NewQueryParameters(
+		table.ValueParam("$userId", ydb.Uint64Value(userID)),
+	),
 	)
 	return err
-}
-
-func getConnection(connectCtx context.Context) (*connect.Connection, error) {
-	return connect.New(
-		connectCtx,
-		connect.MustConnectionString(
-			fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
-		),
-	)
 }
