@@ -69,26 +69,47 @@ const (
 	`
 )
 
-type ydbStorage struct {
-	txc        *table.TransactionControl
-	ctx        context.Context
-	connection *connect.Connection
+type queryExecuter interface {
+	ProcessQuery(string, *table.QueryParameters) (*table.Result, error)
 }
 
-func newYdbStorage() *ydbStorage {
-	return &ydbStorage{
+type ydbQueryExecuter struct {
+	ExecQueryFunc     func(context.Context, table.SessionProvider, table.Operation) error
+	GetConnectionFunc func(context.Context, connect.ConnectParams, ...connect.ConnectOption) (*connect.Connection, error)
+	txc               *table.TransactionControl
+	ctx               context.Context
+	connection        *connect.Connection
+}
+
+type ydbStorage struct {
+	ydbExecuter queryExecuter
+	ctx         context.Context
+}
+
+func newYDBQueryExecuter(ctx context.Context) *ydbQueryExecuter {
+	return &ydbQueryExecuter{
 		txc: table.TxControl(
 			table.BeginTx(table.WithSerializableReadWrite()),
 			table.CommitTx(),
 		),
-		ctx: context.Background(),
+		ctx:               ctx,
+		ExecQueryFunc:     table.Retry,
+		GetConnectionFunc: connect.New,
 	}
 }
 
-func (y *ydbStorage) getConnection() (*connect.Connection, error) {
+func newYdbStorage() *ydbStorage {
+	ydbExecuter := newYDBQueryExecuter(context.Background())
+	return &ydbStorage{
+		ctx:         ydbExecuter.ctx,
+		ydbExecuter: ydbExecuter,
+	}
+}
+
+func (y *ydbQueryExecuter) getConnection() (*connect.Connection, error) {
 	if y.connection == nil {
 		var err error
-		y.connection, err = connect.New(
+		y.connection, err = y.GetConnectionFunc(
 			y.ctx,
 			connect.MustConnectionString(
 				fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
@@ -102,27 +123,24 @@ func (y *ydbStorage) getConnection() (*connect.Connection, error) {
 	return y.connection, nil
 }
 
-func (y *ydbStorage) processQuery(query string, queryParams *table.QueryParameters) (*table.Result, error) {
+func (y *ydbQueryExecuter) ProcessQuery(query string, queryParams *table.QueryParameters) (*table.Result, error) {
 	connection, err := y.getConnection()
 	if err != nil {
 		return nil, err
 	}
 	var res *table.Result
-	return res, table.Retry(
+	return res, y.ExecQueryFunc(
 		y.ctx,
 		connection.Table().Pool(),
 		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
-			_, res, err = s.Execute(ctx, y.txc,
-				query,
-				queryParams,
-			)
+			_, res, err = s.Execute(ctx, y.txc, query, queryParams)
 			return err
 		}),
 	)
 }
 
 func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
-	res, err := y.processQuery(getTaskQuery, table.NewQueryParameters(
+	res, err := y.ydbExecuter.ProcessQuery(getTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
 	))
 	if err != nil {
@@ -179,7 +197,7 @@ func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
 	if err != nil {
 		return err
 	}
-	_, err = y.processQuery(replaceTaskQuery, table.NewQueryParameters(
+	_, err = y.ydbExecuter.ProcessQuery(replaceTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
 		table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
 		table.ValueParam("$itemId", ydb.Uint64Value(task.ItemID)),
@@ -193,7 +211,7 @@ func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
 }
 
 func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
-	res, err := y.processQuery(getUserQuery,
+	res, err := y.ydbExecuter.ProcessQuery(getUserQuery,
 		table.NewQueryParameters(
 			table.ValueParam("$userId", ydb.Uint64Value(userID)),
 		),
@@ -239,7 +257,7 @@ func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
 }
 
 func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
-	res, err := y.processQuery(getSubscribedUsersQuery, table.NewQueryParameters())
+	res, err := y.ydbExecuter.ProcessQuery(getSubscribedUsersQuery, table.NewQueryParameters())
 	if err != nil {
 		return []common.User{}, err
 	}
@@ -280,7 +298,7 @@ func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
 }
 
 func (y *ydbStorage) saveUser(user common.User) error {
-	_, err := y.processQuery(saveUserQuery, table.NewQueryParameters(
+	_, err := y.ydbExecuter.ProcessQuery(saveUserQuery, table.NewQueryParameters(
 		table.ValueParam("$id", ydb.Uint64Value(user.ID)),
 		table.ValueParam("$chat_id", ydb.Uint64Value(user.ChatID)),
 		table.ValueParam("$firstname", ydb.StringValue([]byte(user.FirstName))),
@@ -293,7 +311,7 @@ func (y *ydbStorage) saveUser(user common.User) error {
 }
 
 func (y *ydbStorage) subscribeUser(userID uint64) error {
-	_, err := y.processQuery(subscribeUserQuery, table.NewQueryParameters(
+	_, err := y.ydbExecuter.ProcessQuery(subscribeUserQuery, table.NewQueryParameters(
 		table.ValueParam("$userId", ydb.Uint64Value(userID)),
 	),
 	)
@@ -301,7 +319,7 @@ func (y *ydbStorage) subscribeUser(userID uint64) error {
 }
 
 func (y *ydbStorage) unsubscribeUser(userID uint64) error {
-	_, err := y.processQuery(unsubscribeUserQuery, table.NewQueryParameters(
+	_, err := y.ydbExecuter.ProcessQuery(unsubscribeUserQuery, table.NewQueryParameters(
 		table.ValueParam("$userId", ydb.Uint64Value(userID)),
 	),
 	)
