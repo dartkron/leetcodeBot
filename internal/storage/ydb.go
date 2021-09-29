@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/yandex-cloud/ydb-go-sdk/v2"
@@ -71,7 +70,9 @@ const (
 )
 
 type ydbStorage struct {
-	txc *table.TransactionControl
+	txc        *table.TransactionControl
+	ctx        context.Context
+	connection *connect.Connection
 }
 
 func newYdbStorage() *ydbStorage {
@@ -80,27 +81,35 @@ func newYdbStorage() *ydbStorage {
 			table.BeginTx(table.WithSerializableReadWrite()),
 			table.CommitTx(),
 		),
+		ctx: context.Background(),
 	}
 }
 
-func (y *ydbStorage) processQuery(res *table.Result, query string, queryParams *table.QueryParameters) (context.Context, error) {
-	ctx := context.Background()
-	connectCtx, cancelFunc := context.WithTimeout(ctx, time.Second)
-	defer cancelFunc()
-	connection, err := connect.New(
-		connectCtx,
-		connect.MustConnectionString(
-			fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
-		),
-	)
-	defer cancelFunc()
-	if err != nil {
-		return ctx, err
+func (y *ydbStorage) getConnection() (*connect.Connection, error) {
+	if y.connection == nil {
+		var err error
+		y.connection, err = connect.New(
+			y.ctx,
+			connect.MustConnectionString(
+				fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
+			),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
-	defer connection.Close()
 
-	return ctx, table.Retry(
-		ctx,
+	return y.connection, nil
+}
+
+func (y *ydbStorage) processQuery(query string, queryParams *table.QueryParameters) (*table.Result, error) {
+	connection, err := y.getConnection()
+	if err != nil {
+		return nil, err
+	}
+	var res *table.Result
+	return res, table.Retry(
+		y.ctx,
 		connection.Table().Pool(),
 		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
 			_, res, err = s.Execute(ctx, y.txc,
@@ -113,8 +122,7 @@ func (y *ydbStorage) processQuery(res *table.Result, query string, queryParams *
 }
 
 func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
-	var res *table.Result
-	ctx, err := y.processQuery(res, getTaskQuery, table.NewQueryParameters(
+	res, err := y.processQuery(getTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
 	))
 	if err != nil {
@@ -136,7 +144,7 @@ func (y *ydbStorage) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
 
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
 
-	for res.NextResultSet(ctx, "title", "text", "questionId", "itemId", "hints", "difficulty") {
+	for res.NextResultSet(y.ctx, "title", "text", "questionId", "itemId", "hints", "difficulty") {
 		for res.NextRow() {
 			err = res.Scan(
 				&title,
@@ -171,8 +179,7 @@ func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
 	if err != nil {
 		return err
 	}
-	var res *table.Result
-	_, err = y.processQuery(res, replaceTaskQuery, table.NewQueryParameters(
+	_, err = y.processQuery(replaceTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
 		table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
 		table.ValueParam("$itemId", ydb.Uint64Value(task.ItemID)),
@@ -186,8 +193,7 @@ func (y *ydbStorage) saveTask(task common.BotLeetCodeTask) error {
 }
 
 func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
-	var res *table.Result
-	ctx, err := y.processQuery(res, getUserQuery,
+	res, err := y.processQuery(getUserQuery,
 		table.NewQueryParameters(
 			table.ValueParam("$userId", ydb.Uint64Value(userID)),
 		),
@@ -210,7 +216,7 @@ func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
 
 	returnValue := common.User{ID: userID}
 
-	for res.NextResultSet(ctx, "chat_id", "firstName", "lastName", "username", "subscribed") {
+	for res.NextResultSet(y.ctx, "chat_id", "firstName", "lastName", "username", "subscribed") {
 		for res.NextRow() {
 			err := res.Scan(
 				&chatID,
@@ -233,8 +239,7 @@ func (y *ydbStorage) getUser(userID uint64) (common.User, error) {
 }
 
 func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
-	var res *table.Result
-	ctx, err := y.processQuery(res, getSubscribedUsersQuery, table.NewQueryParameters())
+	res, err := y.processQuery(getSubscribedUsersQuery, table.NewQueryParameters())
 	if err != nil {
 		return []common.User{}, err
 	}
@@ -246,10 +251,9 @@ func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
 		firstName *string
 		lastName  *string
 	)
-
 	returnValue := []common.User{}
 
-	for res.NextResultSet(ctx, "id", "chat_id", "firstName", "lastName", "username") {
+	for res.NextResultSet(y.ctx, "id", "chat_id", "firstName", "lastName", "username") {
 		for res.NextRow() {
 			err := res.Scan(
 				&userID,
@@ -272,15 +276,11 @@ func (y *ydbStorage) getSubscribedUsers() ([]common.User, error) {
 
 		}
 	}
-	if res.Err() != nil {
-		return []common.User{}, res.Err()
-	}
-	return returnValue, nil
+	return returnValue, res.Err()
 }
 
 func (y *ydbStorage) saveUser(user common.User) error {
-	var res *table.Result
-	_, err := y.processQuery(res, saveUserQuery, table.NewQueryParameters(
+	_, err := y.processQuery(saveUserQuery, table.NewQueryParameters(
 		table.ValueParam("$id", ydb.Uint64Value(user.ID)),
 		table.ValueParam("$chat_id", ydb.Uint64Value(user.ChatID)),
 		table.ValueParam("$firstname", ydb.StringValue([]byte(user.FirstName))),
@@ -293,8 +293,7 @@ func (y *ydbStorage) saveUser(user common.User) error {
 }
 
 func (y *ydbStorage) subscribeUser(userID uint64) error {
-	var res *table.Result
-	_, err := y.processQuery(res, subscribeUserQuery, table.NewQueryParameters(
+	_, err := y.processQuery(subscribeUserQuery, table.NewQueryParameters(
 		table.ValueParam("$userId", ydb.Uint64Value(userID)),
 	),
 	)
@@ -302,8 +301,7 @@ func (y *ydbStorage) subscribeUser(userID uint64) error {
 }
 
 func (y *ydbStorage) unsubscribeUser(userID uint64) error {
-	var res *table.Result
-	_, err := y.processQuery(res, unsubscribeUserQuery, table.NewQueryParameters(
+	_, err := y.processQuery(unsubscribeUserQuery, table.NewQueryParameters(
 		table.ValueParam("$userId", ydb.Uint64Value(userID)),
 	),
 	)
