@@ -61,7 +61,8 @@ func (task *BotLeetCodeTask) GetTaskText() string {
 	return fmt.Sprintf("<strong>%s</strong>\n\n%s", task.Title, task.Content)
 }
 
-func getMarshalledCallbackData(dateID uint64, hintID int, dataType CallbackType) (string, error) {
+// GetMarshalledCallbackData shotcut to get ready data for callback
+func GetMarshalledCallbackData(dateID uint64, hintID int, dataType CallbackType) (string, error) {
 	callbackData := CallbackData{DateID: dateID, Type: dataType}
 	if dataType == HintReuqest {
 		callbackData.Hint = int(hintID)
@@ -75,7 +76,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	listOfHints := [][]inlineButton{{}}
 	level := 0
 	for i := range task.Hints {
-		callbackData, err := getMarshalledCallbackData(task.DateID, i, HintReuqest)
+		callbackData, err := GetMarshalledCallbackData(task.DateID, i, HintReuqest)
 		if err != nil {
 			fmt.Println("Got error on marshalling callback data:", err)
 		}
@@ -103,7 +104,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	}, listOfHints...)
 
 	// Append difficulty hint to task inline keyboard
-	getDifficultyCallbackData, err := getMarshalledCallbackData(task.DateID, 0, DifficultyRequest)
+	getDifficultyCallbackData, err := GetMarshalledCallbackData(task.DateID, 0, DifficultyRequest)
 	if err != nil {
 		fmt.Println("Got error on marshalling callback data:", err)
 	}

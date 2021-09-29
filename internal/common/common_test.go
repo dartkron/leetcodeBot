@@ -94,9 +94,9 @@ func TestGetMarshalledCallbackData(t *testing.T) {
 		{dateID: 10, hintID: 22, dataType: DifficultyRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":1,\"hint\":0}"},
 	}
 	for _, testCase := range testCases {
-		result, err := getMarshalledCallbackData(testCase.dateID, testCase.hintID, testCase.dataType)
-		assert.Nil(t, err, "Unexpected error from getMarshalledCallbackData")
-		assert.Equal(t, result, testCase.awaitingResult, "Unexpected getMarshalledCallbackData response")
+		result, err := GetMarshalledCallbackData(testCase.dateID, testCase.hintID, testCase.dataType)
+		assert.Nil(t, err, "Unexpected error from GetMarshalledCallbackData")
+		assert.Equal(t, result, testCase.awaitingResult, "Unexpected GetMarshalledCallbackData response")
 	}
 }
 

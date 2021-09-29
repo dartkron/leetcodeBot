@@ -122,6 +122,7 @@ func (app *Application) processCallback(request TelegramRequest) (*TelegramRespo
 		return response, err
 	}
 	response.ChatID = request.CallbackQuery.From.ID
+	// Used only storage here to avoid possible use violation, when user could push application to load all leetcode tasks locally
 	task, err := app.storageController.GetTask(callback.DateID)
 	if err != nil {
 		if err == storage.ErrNoSuchTask {
