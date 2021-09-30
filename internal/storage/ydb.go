@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/yandex-cloud/ydb-go-sdk/v2"
@@ -74,11 +75,12 @@ type queryExecuter interface {
 }
 
 type ydbQueryExecuter struct {
-	ExecQueryFunc     func(context.Context, table.SessionProvider, table.Operation) error
-	GetConnectionFunc func(context.Context, connect.ConnectParams, ...connect.ConnectOption) (*connect.Connection, error)
-	txc               *table.TransactionControl
-	ctx               context.Context
-	connection        *connect.Connection
+	ExecQueryFunc      func(context.Context, table.SessionProvider, table.Operation) error
+	GetConnectionFunc  func(context.Context, connect.ConnectParams, ...connect.ConnectOption) (*connect.Connection, error)
+	txc                *table.TransactionControl
+	ctx                context.Context
+	connection         *connect.Connection
+	connectionInitOnce sync.Once
 }
 
 type ydbStorage struct {
@@ -86,16 +88,22 @@ type ydbStorage struct {
 	ctx         context.Context
 }
 
+var initializedExecuter *ydbQueryExecuter
+var executerInitOnce sync.Once
+
 func newYDBQueryExecuter(ctx context.Context) *ydbQueryExecuter {
-	return &ydbQueryExecuter{
-		txc: table.TxControl(
-			table.BeginTx(table.WithSerializableReadWrite()),
-			table.CommitTx(),
-		),
-		ctx:               ctx,
-		ExecQueryFunc:     table.Retry,
-		GetConnectionFunc: connect.New,
-	}
+	executerInitOnce.Do(func() {
+		initializedExecuter = &ydbQueryExecuter{
+			txc: table.TxControl(
+				table.BeginTx(table.WithSerializableReadWrite()),
+				table.CommitTx(),
+			),
+			ctx:               ctx,
+			ExecQueryFunc:     table.Retry,
+			GetConnectionFunc: connect.New,
+		}
+	})
+	return initializedExecuter
 }
 
 func newYdbStorage() *ydbStorage {
@@ -107,17 +115,17 @@ func newYdbStorage() *ydbStorage {
 }
 
 func (y *ydbQueryExecuter) getConnection() (*connect.Connection, error) {
-	if y.connection == nil {
-		var err error
+	var err error
+	y.connectionInitOnce.Do(func() {
 		y.connection, err = y.GetConnectionFunc(
 			y.ctx,
 			connect.MustConnectionString(
 				fmt.Sprintf("%s/?database=%s", os.Getenv("YDB_ENDPOINT"), os.Getenv("YDB_DATABASE")),
 			),
 		)
-		if err != nil {
-			return nil, err
-		}
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return y.connection, nil
