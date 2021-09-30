@@ -639,7 +639,7 @@ func TestProcessRequestTaskMessage(t *testing.T) {
 	assert.Nil(t, err, "Unexpected json.Marshal error")
 	responseBytes, err := app.ProcessRequestBody(requestbytes)
 	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
-	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210929\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210929\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"20210929\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}"
+	expectedResponse := fmt.Sprintf("{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}", todayTaskID, todayTaskID, todayTaskID)
 	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
 }
 
@@ -695,9 +695,9 @@ func TestProcessRequestTaskHint(t *testing.T) {
 
 func TestProcessRequestTaskHintMoreThenExists(t *testing.T) {
 	_, storageController, _, app := getTestApp()
-	todayTaskID := common.GetDateIDForNow()
-	storageController.tasks[todayTaskID] = &common.BotLeetCodeTask{
-		DateID: todayTaskID,
+	taskID := uint64(20210929)
+	storageController.tasks[taskID] = &common.BotLeetCodeTask{
+		DateID: taskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
 			ItemID:     6534,
@@ -709,7 +709,7 @@ func TestProcessRequestTaskHintMoreThenExists(t *testing.T) {
 	}
 	request := TelegramRequest{}
 	request.CallbackQuery.From.ID = 1126
-	data, err := common.GetMarshalledCallbackData(todayTaskID, 2, common.HintReuqest)
+	data, err := common.GetMarshalledCallbackData(taskID, 2, common.HintReuqest)
 	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
 	request.CallbackQuery.Data = data
 	requestbytes, err := json.Marshal(request)

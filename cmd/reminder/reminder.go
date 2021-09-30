@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/bot"
 )
@@ -28,10 +27,4 @@ func Handler(ctx context.Context) (*Response, error) {
 	}
 	response.Body = "Finished"
 	return response, nil
-}
-
-func main() {
-	resp, err := Handler(context.Background())
-	fmt.Println(resp)
-	fmt.Println(err)
 }
