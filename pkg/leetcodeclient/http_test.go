@@ -1,11 +1,14 @@
 package leetcodeclient
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/dartkron/leetcodeBot/v2/tests"
 	"github.com/dartkron/leetcodeBot/v2/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,55 +20,55 @@ type testRequest struct {
 }
 
 func TestRequestGraphQl(t *testing.T) {
-	requester := newHTTPGraphQlRequester()
-	httpMock := mocks.MockHTTPPost{}
-	httpMock.On(
-		"Func",
+	httpTransportMock := &mocks.MockHTTPTRansport{}
+	requester := newHTTPGraphQlRequester(&http.Client{Transport: httpTransportMock})
+
+	httpTransportMock.On(
+		"RoundTrip",
 		"https://leetcode.com/graphql",
-		"application/json",
+		http.Header{"Content-Type": []string{"application/json"}},
 		"{\"operationName\":\"Test operation\",\"variables\":{\"testVariableName\":\"testVariableVal\"},\"query\":\"Some test query\"}\n",
 	).Return(
 		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("0"))},
 		nil,
 	).Times(1)
-	httpMock.On(
-		"Func",
+	httpTransportMock.On(
+		"RoundTrip",
 		"https://leetcode.com/graphql",
-		"application/json",
+		http.Header{"Content-Type": []string{"application/json"}},
 		"{\"operationName\":\"\",\"variables\":null,\"query\":\"Query for bypass error\"}\n",
 	).Return(
 		&http.Response{},
-		ErrBypassTest,
+		tests.ErrBypassTest,
 	).Times(1)
-	httpMock.On(
-		"Func",
+	httpTransportMock.On(
+		"RoundTrip",
 		"https://leetcode.com/graphql",
-		"application/json",
+		http.Header{"Content-Type": []string{"application/json"}},
 		"{\"operationName\":\"Test operation no variables\",\"variables\":{},\"query\":\"Some test query1\"}\n",
 	).Return(
 		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("1"))},
 		nil,
 	).Times(1)
-	httpMock.On(
-		"Func",
+	httpTransportMock.On(
+		"RoundTrip",
 		"https://leetcode.com/graphql",
-		"application/json",
+		http.Header{"Content-Type": []string{"application/json"}},
 		"{\"operationName\":\"Test operation two variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\"},\"query\":\"Some test query2\"}\n",
 	).Return(
 		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("2"))},
 		nil,
 	).Times(1)
-	httpMock.On(
-		"Func",
+	httpTransportMock.On(
+		"RoundTrip",
 		"https://leetcode.com/graphql",
-		"application/json",
+		http.Header{"Content-Type": []string{"application/json"}},
 		"{\"operationName\":\"Test operation three variables\",\"variables\":{\"testVariableName\":\"testVariableVal\",\"testVariableName1\":\"testVariableVal1\",\"testVariableName2\":\"testVariableVal2\"},\"query\":\"Some test query3\"}\n",
 	).Return(
 		&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("3"))},
 		nil,
 	).Times(1)
 
-	requester.PostFunc = httpMock.Func
 	testCases := []testRequest{
 		{
 			req: graphQlRequest{
@@ -80,7 +83,7 @@ func TestRequestGraphQl(t *testing.T) {
 				Query: "Query for bypass error",
 			},
 			resp: "",
-			err:  ErrBypassTest,
+			err:  &url.Error{Op: "Post", URL: "https://leetcode.com/graphql", Err: tests.ErrBypassTest},
 		},
 		{
 			req: graphQlRequest{
@@ -109,15 +112,15 @@ func TestRequestGraphQl(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		resp, err := requester.requestGraphQl(testCase.req)
-		assert.Equal(t, err, testCase.err)
+		resp, err := requester.requestGraphQl(context.Background(), testCase.req)
+		assert.Equal(t, testCase.err, err)
 		assert.Equal(t, string(resp), testCase.resp)
 	}
-	httpMock.AssertExpectations(t)
+	httpTransportMock.AssertExpectations(t)
 }
 
 func TestNewHTTPGraphQlRequester(t *testing.T) {
-	requester := newHTTPGraphQlRequester()
-	assert.NotNil(t, requester.PostFunc, "PostFunc should be set in conctructor")
+	requester := newHTTPGraphQlRequester(nil)
+	assert.NotNil(t, requester.HTTPClient, "PostFunc should be set in conctructor")
 	assert.NotEmpty(t, requester.GraphQlURL, "GraphQlURL should be set in conctructor")
 }

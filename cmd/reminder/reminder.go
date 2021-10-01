@@ -18,8 +18,8 @@ func Handler(ctx context.Context) (*Response, error) {
 		StatusCode: 200,
 		Body:       "",
 	}
-	app := bot.NewApplication()
-	err := app.SendDailyTaskToSubscribedUsers()
+	app := bot.NewApplication(nil)
+	err := app.SendDailyTaskToSubscribedUsers(ctx)
 	if err != nil {
 		response.StatusCode = 500
 		response.Body = err.Error()

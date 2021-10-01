@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,30 +18,60 @@ type fileCache struct {
 }
 
 // getTask from local fs from path based on Path + mask
-func (c *fileCache) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
-	cachePath := c.getTaskCachePath(dateID)
-	cacheFile, err := os.Open(cachePath)
-	if os.IsNotExist(err) {
-		return common.BotLeetCodeTask{}, ErrNoSuchTask
-	}
-	defer cacheFile.Close()
-	bytes, err := io.ReadAll(cacheFile)
-	if err != nil {
-		return common.BotLeetCodeTask{}, err
-	}
+func (c *fileCache) getTask(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
+	respChan := make(chan common.BotLeetCodeTask)
+	errChan := make(chan error)
+	go func() {
+		cachePath := c.getTaskCachePath(dateID)
+		cacheFile, err := os.Open(cachePath)
+		if os.IsNotExist(err) {
+			errChan <- ErrNoSuchTask
+			return
+		}
+		defer cacheFile.Close()
+		bytes, err := io.ReadAll(cacheFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		task := common.BotLeetCodeTask{}
+		err = json.Unmarshal(bytes, &task)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		respChan <- task
+	}()
 	task := common.BotLeetCodeTask{}
-	err = json.Unmarshal(bytes, &task)
+	var err error
+	select {
+	case <-ctx.Done():
+		err = common.ErrClosedContext
+	case err = <-errChan:
+	case task = <-respChan:
+	}
 	return task, err
 }
 
 // saveTask to local fs cache storage
-func (c *fileCache) saveTask(task common.BotLeetCodeTask) error {
-	cachePath := c.getTaskCachePath(task.DateID)
-	bytesTask, err := json.Marshal(task)
-	if err != nil {
-		return err
+func (c *fileCache) saveTask(ctx context.Context, task common.BotLeetCodeTask) error {
+	errChan := make(chan error)
+	go func() {
+		cachePath := c.getTaskCachePath(task.DateID)
+		bytesTask, err := json.Marshal(task)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		err = os.WriteFile(cachePath, bytesTask, 0644)
+		errChan <- err
+	}()
+	var err error
+	select {
+	case <-ctx.Done():
+		err = common.ErrClosedContext
+	case err = <-errChan:
 	}
-	err = os.WriteFile(cachePath, bytesTask, 0644)
 	return err
 }
 

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/bot"
 )
@@ -16,8 +18,10 @@ func Handler(resp http.ResponseWriter, req *http.Request) {
 		fmt.Println("Error on reading request body:", err)
 		return
 	}
-	app := bot.NewApplication()
-	responseBytes, err := app.ProcessRequestBody(bodyBytes)
+	app := bot.NewApplication(nil)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+	defer cancelFunc()
+	responseBytes, err := app.ProcessRequestBody(ctx, bodyBytes)
 	if err != nil {
 		fmt.Println("Sending 500 error in response, because got error from bot.ProcessRequestBody", err)
 		resp.WriteHeader(500)

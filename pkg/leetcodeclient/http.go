@@ -2,6 +2,7 @@ package leetcodeclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -9,25 +10,33 @@ import (
 
 type httpGraphQlRequester struct {
 	GraphQlURL string
-	PostFunc   func(string, string, io.Reader) (*http.Response, error)
+	HTTPClient *http.Client
 }
 
-func (requester *httpGraphQlRequester) requestGraphQl(request graphQlRequest) ([]byte, error) {
-	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(request)
+func (requester *httpGraphQlRequester) requestGraphQl(ctx context.Context, request graphQlRequest) ([]byte, error) {
+	bodyBuffer := new(bytes.Buffer)
+	err := json.NewEncoder(bodyBuffer).Encode(request)
 	if err != nil {
 		return []byte{}, err
 	}
-	r, err := requester.PostFunc(requester.GraphQlURL, "application/json", b)
+
+	req, _ := http.NewRequestWithContext(ctx, "POST", requester.GraphQlURL, bodyBuffer)
+	req.Header.Add("content-type", "application/json")
+
+	response, err := requester.HTTPClient.Do(req)
+
 	if err != nil {
 		return []byte{}, err
 	}
-	return io.ReadAll(r.Body)
+	return io.ReadAll(response.Body)
 }
 
-func newHTTPGraphQlRequester() *httpGraphQlRequester {
+func newHTTPGraphQlRequester(httpClient *http.Client) *httpGraphQlRequester {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
 	return &httpGraphQlRequester{
 		GraphQlURL: "https://leetcode.com/graphql",
-		PostFunc:   http.Post,
+		HTTPClient: httpClient,
 	}
 }

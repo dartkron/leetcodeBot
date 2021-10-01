@@ -1,6 +1,7 @@
 package leetcodeclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -20,9 +21,9 @@ type LeetCodeTask struct {
 
 // LeetcodeClient represents abstract set of methods required from any possible kind of Leetcode client
 type LeetcodeClient interface {
-	GetDailyTaskItemID(time.Time) (string, error)
-	GetQuestionDetailsByItemID(string) (LeetCodeTask, error)
-	GetDailyTask(time.Time) (LeetCodeTask, error)
+	GetDailyTaskItemID(context.Context, time.Time) (string, error)
+	GetQuestionDetailsByItemID(context.Context, string) (LeetCodeTask, error)
+	GetDailyTask(context.Context, time.Time) (LeetCodeTask, error)
 }
 
 type chaptersDesc struct {
@@ -70,15 +71,15 @@ type graphQlRequest struct {
 }
 
 type graphQlRequester interface {
-	requestGraphQl(graphQlRequest) ([]byte, error)
+	requestGraphQl(context.Context, graphQlRequest) ([]byte, error)
 }
 
-func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(date time.Time) ([]string, error) {
+func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(ctx context.Context, date time.Time) ([]string, error) {
 	chaptersReq := c.getChaptersReq
 
 	cardSlug := c.getSlug(date)
 	chaptersReq.Variables = map[string]string{"cardSlug": cardSlug}
-	responseBytes, err := c.transport.requestGraphQl(chaptersReq)
+	responseBytes, err := c.transport.requestGraphQl(ctx, chaptersReq)
 	if err != nil {
 		return []string{}, err
 	}
@@ -96,8 +97,8 @@ func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(date time.Time) ([]
 	return resp, err
 }
 
-func (c *LeetCodeGraphQlClient) getDailyTaskItemIDForDate(date time.Time) (string, error) {
-	forMonth, err := c.getDailyTaskItemsIdsForMonth(date)
+func (c *LeetCodeGraphQlClient) getDailyTaskItemIDForDate(ctx context.Context, date time.Time) (string, error) {
+	forMonth, err := c.getDailyTaskItemsIdsForMonth(ctx, date)
 	if err != nil {
 		return "", err
 	}
@@ -108,18 +109,18 @@ func (c *LeetCodeGraphQlClient) getDailyTaskItemIDForDate(date time.Time) (strin
 }
 
 // GetDailyTaskItemID retrieve itemId for task of the day on provided date
-func (c *LeetCodeGraphQlClient) GetDailyTaskItemID(date time.Time) (string, error) {
-	return c.getDailyTaskItemIDForDate(date)
+func (c *LeetCodeGraphQlClient) GetDailyTaskItemID(ctx context.Context, date time.Time) (string, error) {
+	return c.getDailyTaskItemIDForDate(ctx, date)
 }
 
 func (c *LeetCodeGraphQlClient) getSlug(date time.Time) string {
 	return fmt.Sprintf("%s-leetcoding-challenge-%d", strings.ToLower(date.Month().String()), date.Year())
 }
 
-func (c *LeetCodeGraphQlClient) getQuestionSlug(itemID string) (string, error) {
+func (c *LeetCodeGraphQlClient) getQuestionSlug(ctx context.Context, itemID string) (string, error) {
 	slugReq := c.getSlugReq
 	slugReq.Variables["itemId"] = itemID
-	responseBytes, err := c.transport.requestGraphQl(slugReq)
+	responseBytes, err := c.transport.requestGraphQl(ctx, slugReq)
 	if err != nil {
 		return "", err
 	}
@@ -129,15 +130,15 @@ func (c *LeetCodeGraphQlClient) getQuestionSlug(itemID string) (string, error) {
 }
 
 // GetQuestionDetailsByItemID provides all details of the question: title, text, hints, difficulty by provided itemID
-func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(itemID string) (LeetCodeTask, error) {
+func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(ctx context.Context, itemID string) (LeetCodeTask, error) {
 	questionReq := c.getQuestionReq
-	questionSlug, err := c.getQuestionSlug(itemID)
+	questionSlug, err := c.getQuestionSlug(ctx, itemID)
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
 	questionReq.Variables["titleSlug"] = questionSlug
 
-	responseBytes, err := c.transport.requestGraphQl(c.getQuestionReq)
+	responseBytes, err := c.transport.requestGraphQl(ctx, c.getQuestionReq)
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
@@ -152,18 +153,18 @@ func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(itemID string) (LeetC
 }
 
 // GetDailyTask shortcut of GetDailyTaskItemID and GetQuestionDetailsByItemID
-func (c *LeetCodeGraphQlClient) GetDailyTask(date time.Time) (LeetCodeTask, error) {
-	itemID, err := c.GetDailyTaskItemID(date)
+func (c *LeetCodeGraphQlClient) GetDailyTask(ctx context.Context, date time.Time) (LeetCodeTask, error) {
+	itemID, err := c.GetDailyTaskItemID(ctx, date)
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
-	task, err := c.GetQuestionDetailsByItemID(itemID)
+	task, err := c.GetQuestionDetailsByItemID(ctx, itemID)
 	return task, err
 }
 
 // NewLeetCodeGraphQlClient construct LeetCode client with default values
 func NewLeetCodeGraphQlClient() *LeetCodeGraphQlClient {
-	return newLeetCodeGraphQlClient(newHTTPGraphQlRequester())
+	return newLeetCodeGraphQlClient(newHTTPGraphQlRequester(nil))
 }
 
 func newLeetCodeGraphQlClient(requester graphQlRequester) *LeetCodeGraphQlClient {

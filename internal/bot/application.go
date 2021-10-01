@@ -2,6 +2,7 @@ package bot
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -90,11 +91,11 @@ func NewTelegramResponse() *TelegramResponse {
 type Application struct {
 	storageController storage.Controller
 	leetcodeAPIClient leetcodeclient.LeetcodeClient
-	PostFunc          func(string, string, io.Reader) (*http.Response, error)
+	HTTPClient        *http.Client
 }
 
 // ProcessRequestBody parse body json and route request to handlers
-func (app *Application) ProcessRequestBody(body []byte) ([]byte, error) {
+func (app *Application) ProcessRequestBody(ctx context.Context, body []byte) ([]byte, error) {
 	telegramRequest := TelegramRequest{}
 	err := json.Unmarshal(body, &telegramRequest)
 	if err != nil {
@@ -102,9 +103,9 @@ func (app *Application) ProcessRequestBody(body []byte) ([]byte, error) {
 	}
 	var response *TelegramResponse
 	if len(telegramRequest.CallbackQuery.Data) != 0 {
-		response, err = app.processCallback(telegramRequest)
+		response, err = app.processCallback(ctx, telegramRequest)
 	} else {
-		response, err = app.processMessage(telegramRequest)
+		response, err = app.processMessage(ctx, telegramRequest)
 	}
 	if err != nil {
 		return []byte{}, err
@@ -114,7 +115,7 @@ func (app *Application) ProcessRequestBody(body []byte) ([]byte, error) {
 
 }
 
-func (app *Application) processCallback(request TelegramRequest) (*TelegramResponse, error) {
+func (app *Application) processCallback(ctx context.Context, request TelegramRequest) (*TelegramResponse, error) {
 	response := NewTelegramResponse()
 	callback := common.CallbackData{}
 	err := json.Unmarshal([]byte(request.CallbackQuery.Data), &callback)
@@ -123,7 +124,7 @@ func (app *Application) processCallback(request TelegramRequest) (*TelegramRespo
 	}
 	response.ChatID = request.CallbackQuery.From.ID
 	// Used only storage here to avoid possible use violation, when user could push application to load all leetcode tasks locally
-	task, err := app.storageController.GetTask(callback.DateID)
+	task, err := app.storageController.GetTask(ctx, callback.DateID)
 	if err != nil {
 		if err == storage.ErrNoSuchTask {
 			response.Text = "There is not such dailyTask. Try another breach ;)"
@@ -144,7 +145,7 @@ func (app *Application) processCallback(request TelegramRequest) (*TelegramRespo
 	return response, nil
 }
 
-func (app *Application) processMessage(request TelegramRequest) (*TelegramResponse, error) {
+func (app *Application) processMessage(ctx context.Context, request TelegramRequest) (*TelegramResponse, error) {
 	command := request.Message.Text
 	response := NewTelegramResponse()
 	response.ChatID = request.Message.Chat.ID
@@ -155,11 +156,11 @@ func (app *Application) processMessage(request TelegramRequest) (*TelegramRespon
 	response.ReplyMarkup = keyboard
 	switch command {
 	case getActualDailyTaskCommand, "/getDailyTask":
-		err = app.getTaskAction(response)
+		err = app.getTaskAction(ctx, response)
 	case subscribeCommand, "/Subscribe":
-		err = app.subscribeAction(&request, response)
+		err = app.subscribeAction(ctx, &request, response)
 	case unsubscribeCommand, "/Unsubscribe":
-		err = app.unsubscribeAction(&request, response)
+		err = app.unsubscribeAction(ctx, &request, response)
 	default:
 		response.Text = fmt.Sprintf(helpMessage, command)
 	}
@@ -167,8 +168,8 @@ func (app *Application) processMessage(request TelegramRequest) (*TelegramRespon
 
 }
 
-func (app *Application) getTaskAction(response *TelegramResponse) error {
-	task, err := app.GetTodayTaskFromAllPossibleSources()
+func (app *Application) getTaskAction(ctx context.Context, response *TelegramResponse) error {
+	task, err := app.GetTodayTaskFromAllPossibleSources(ctx)
 	if err != nil {
 		return err
 	}
@@ -177,7 +178,7 @@ func (app *Application) getTaskAction(response *TelegramResponse) error {
 	return nil
 }
 
-func (app *Application) subscribeAction(request *TelegramRequest, response *TelegramResponse) error {
+func (app *Application) subscribeAction(ctx context.Context, request *TelegramRequest, response *TelegramResponse) error {
 	user := common.User{
 		ID:        request.Message.From.ID,
 		ChatID:    request.Message.Chat.ID,
@@ -185,7 +186,7 @@ func (app *Application) subscribeAction(request *TelegramRequest, response *Tele
 		FirstName: request.Message.From.FirstName,
 		LastName:  request.Message.From.LastName,
 	}
-	err := app.storageController.SubscribeUser(user)
+	err := app.storageController.SubscribeUser(ctx, user)
 	if err == storage.ErrUserAlreadySubscribed {
 		response.Text = fmt.Sprintf(alreadySubscribedMessage, user.FirstName)
 
@@ -197,8 +198,8 @@ func (app *Application) subscribeAction(request *TelegramRequest, response *Tele
 	return nil
 }
 
-func (app *Application) unsubscribeAction(request *TelegramRequest, response *TelegramResponse) error {
-	err := app.storageController.UnsubscribeUser(request.Message.From.ID)
+func (app *Application) unsubscribeAction(ctx context.Context, request *TelegramRequest, response *TelegramResponse) error {
+	err := app.storageController.UnsubscribeUser(ctx, request.Message.From.ID)
 	if err == storage.ErrUserAlreadyUnsubscribed {
 		response.Text = fmt.Sprintf(alreadyUnsubscribedMessage, request.Message.From.FirstName)
 	} else if err != nil {
@@ -211,16 +212,16 @@ func (app *Application) unsubscribeAction(request *TelegramRequest, response *Te
 
 // GetTodayTaskFromAllPossibleSources is the one func to rule them all
 // It's apperared because of necessary to share logic between reminder and bot
-func (app *Application) GetTodayTaskFromAllPossibleSources() (common.BotLeetCodeTask, error) {
+func (app *Application) GetTodayTaskFromAllPossibleSources(ctx context.Context) (common.BotLeetCodeTask, error) {
 	now := common.GetDateInRightTimeZone()
 	taskDateID := common.GetDateID(now)
-	task, err := app.storageController.GetTask(taskDateID)
+	task, err := app.storageController.GetTask(ctx, taskDateID)
 	if err != nil {
 		if err != storage.ErrNoSuchTask {
 			fmt.Println("Got DB error:", err)
 			fmt.Println("Fallback to Leetcode API")
 		}
-		lcTask, err := app.leetcodeAPIClient.GetDailyTask(now)
+		lcTask, err := app.leetcodeAPIClient.GetDailyTask(ctx, now)
 		if err != nil {
 			return common.BotLeetCodeTask{}, err
 		}
@@ -229,7 +230,7 @@ func (app *Application) GetTodayTaskFromAllPossibleSources() (common.BotLeetCode
 			DateID:       taskDateID,
 		}
 		task.FixTagsAndImages()
-		err = app.storageController.SaveTask(task)
+		err = app.storageController.SaveTask(ctx, task)
 		if err != nil {
 			return task, err
 		}
@@ -239,12 +240,17 @@ func (app *Application) GetTodayTaskFromAllPossibleSources() (common.BotLeetCode
 }
 
 // SendMessage sends message to particular user.
-func (app *Application) SendMessage(requestBody []byte) error {
+func (app *Application) SendMessage(ctx context.Context, requestBody []byte) error {
 	tries := 0
 	for tries < 3 {
 		tries++
 		buf := bytes.NewBuffer(requestBody)
-		resp, err := app.PostFunc(fmt.Sprintf(telegramAPIURL, os.Getenv("SENDING_TOKEN")), "application/json", buf)
+		request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf(telegramAPIURL, os.Getenv("SENDING_TOKEN")), buf)
+		if err != nil {
+			return err
+		}
+		request.Header.Add("content-type", "application/json")
+		resp, err := app.HTTPClient.Do(request)
 		if err != nil || resp.StatusCode >= 400 {
 			if tries == 3 {
 				return err
@@ -260,14 +266,14 @@ func (app *Application) SendMessage(requestBody []byte) error {
 }
 
 // SendDailyTaskToSubscribedUsers get subscribed users and send notifications with daily task to them
-func (app *Application) SendDailyTaskToSubscribedUsers() error {
-	usersSlice, err := app.storageController.GetSubscribedUsers()
+func (app *Application) SendDailyTaskToSubscribedUsers(ctx context.Context) error {
+	usersSlice, err := app.storageController.GetSubscribedUsers(ctx)
 	if err != nil {
 		return err
 	}
 
 	telegramRequest := NewTelegramResponse()
-	err = app.getTaskAction(telegramRequest)
+	err = app.getTaskAction(ctx, telegramRequest)
 	if err != nil {
 		return err
 	}
@@ -281,7 +287,7 @@ func (app *Application) SendDailyTaskToSubscribedUsers() error {
 		}
 		wg.Add(1)
 		go func(bytes []byte, userID uint64) {
-			err := app.SendMessage(bytes)
+			err := app.SendMessage(ctx, bytes)
 			if err != nil {
 				fmt.Printf("Failed to send message to user %d, with error: %s\n", userID, err.Error())
 			}
@@ -310,10 +316,13 @@ func GetMainKeyboard() (string, error) {
 }
 
 // NewApplication Application constructor with default values
-func NewApplication() *Application {
+func NewApplication(httpClient *http.Client) *Application {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
 	return &Application{
 		storageController: storage.NewYDBandFileCacheController(),
 		leetcodeAPIClient: leetcodeclient.NewLeetCodeGraphQlClient(),
-		PostFunc:          http.Post,
+		HTTPClient:        httpClient,
 	}
 }

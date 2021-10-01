@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"testing"
@@ -17,7 +18,7 @@ type MockTasksStorekeeper struct {
 	IDToFail     uint64
 }
 
-func (k *MockTasksStorekeeper) getTask(dateID uint64) (common.BotLeetCodeTask, error) {
+func (k *MockTasksStorekeeper) getTask(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("getTask %d", dateID))
 	if dateID == k.IDToFail {
 		return common.BotLeetCodeTask{}, tests.ErrBypassTest
@@ -27,7 +28,7 @@ func (k *MockTasksStorekeeper) getTask(dateID uint64) (common.BotLeetCodeTask, e
 	}
 	return common.BotLeetCodeTask{}, ErrNoSuchTask
 }
-func (k *MockTasksStorekeeper) saveTask(task common.BotLeetCodeTask) error {
+func (k *MockTasksStorekeeper) saveTask(ctx context.Context, task common.BotLeetCodeTask) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("saveTask %d", task.DateID))
 	if task.DateID == k.IDToFail {
 		return tests.ErrBypassTest
@@ -43,7 +44,7 @@ type MockUsersStorekeeper struct {
 	getSubscribedUsersMustFail bool
 }
 
-func (k *MockUsersStorekeeper) getUser(userID uint64) (common.User, error) {
+func (k *MockUsersStorekeeper) getUser(ctx context.Context, userID uint64) (common.User, error) {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("getUser %d", userID))
 	if userID == k.IDToFail {
 		return common.User{}, tests.ErrBypassTest
@@ -54,7 +55,7 @@ func (k *MockUsersStorekeeper) getUser(userID uint64) (common.User, error) {
 	return common.User{}, ErrNoSuchUser
 }
 
-func (k *MockUsersStorekeeper) saveUser(user common.User) error {
+func (k *MockUsersStorekeeper) saveUser(ctx context.Context, user common.User) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("saveUser %d", user.ID))
 	if user.ID == k.IDToFail {
 		return tests.ErrBypassTest
@@ -63,7 +64,7 @@ func (k *MockUsersStorekeeper) saveUser(user common.User) error {
 	return nil
 }
 
-func (k *MockUsersStorekeeper) subscribeUser(userID uint64) error {
+func (k *MockUsersStorekeeper) subscribeUser(ctx context.Context, userID uint64) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("subscribeUser %d", userID))
 	if userID == k.IDToFail {
 		return tests.ErrBypassTest
@@ -76,7 +77,7 @@ func (k *MockUsersStorekeeper) subscribeUser(userID uint64) error {
 	return nil
 }
 
-func (k *MockUsersStorekeeper) unsubscribeUser(userID uint64) error {
+func (k *MockUsersStorekeeper) unsubscribeUser(ctx context.Context, userID uint64) error {
 	k.callsJournal = append(k.callsJournal, fmt.Sprintf("unsubscribeUser %d", userID))
 	if userID == k.IDToFail {
 		return tests.ErrBypassTest
@@ -89,7 +90,7 @@ func (k *MockUsersStorekeeper) unsubscribeUser(userID uint64) error {
 	return nil
 }
 
-func (k *MockUsersStorekeeper) getSubscribedUsers() ([]common.User, error) {
+func (k *MockUsersStorekeeper) getSubscribedUsers(ctx context.Context) ([]common.User, error) {
 	k.callsJournal = append(k.callsJournal, "getSubscribedUsers")
 	if k.getSubscribedUsersMustFail {
 		return []common.User{}, tests.ErrBypassTest
@@ -115,12 +116,12 @@ func TestNotConfiguredStorage(t *testing.T) {
 	storageController.tasksCache = nil
 	storageController.tasksDB = nil
 	storageController.usersDB = nil
-	assert.Equal(t, storageController.UnsubscribeUser(3435), ErrNoActiveUsersStorage, "UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	assert.Equal(t, storageController.SubscribeUser(common.User{}), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	_, err := storageController.GetSubscribedUsers()
+	assert.Equal(t, storageController.UnsubscribeUser(context.Background(), 3435), ErrNoActiveUsersStorage, "UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
+	assert.Equal(t, storageController.SubscribeUser(context.Background(), common.User{}), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
+	_, err := storageController.GetSubscribedUsers(context.Background())
 	assert.Equal(t, err, ErrNoActiveUsersStorage, "GetSubscribedUsers should return ErrNoActiveUsersStorage when users storage isn't set")
-	assert.Nil(t, storageController.SaveTask(common.BotLeetCodeTask{}), "Unexpected error from SaveTask with unconfigured storage")
-	_, err = storageController.GetTask(12312)
+	assert.Nil(t, storageController.SaveTask(context.Background(), common.BotLeetCodeTask{}), "Unexpected error from SaveTask with unconfigured storage")
+	_, err = storageController.GetTask(context.Background(), 12312)
 	assert.Equal(t, err, ErrNoSuchTask, "Unexpected error from GetTask with unconfigured storage")
 }
 
@@ -178,7 +179,7 @@ func getTestController() (*YDBandFileCacheController, *MockTasksStorekeeper, *Mo
 func TestGetTaskFromCache(t *testing.T) {
 	storageController, cacheStorage, DBStorage := getTestController()
 	// Get task from cache
-	task, err := storageController.GetTask(12345)
+	task, err := storageController.GetTask(context.Background(), 12345)
 	assert.Nil(t, err, "Unexpected GetTask error")
 	assert.Equal(t, task, cacheStorage.tasks[12345], "Recieved task differs with task in storage")
 	assert.Empty(t, DBStorage.callsJournal, "Datase shoudn't be called when task persists in the cache")
@@ -188,7 +189,7 @@ func TestGetTaskFromCache(t *testing.T) {
 func TestGetTaskFromDBMissedInCache(t *testing.T) {
 	storageController, cacheStorage, DBStorage := getTestController()
 	// Get task from DB and check that it will be saved in cache
-	task, err := storageController.GetTask(12346)
+	task, err := storageController.GetTask(context.Background(), 12346)
 	assert.Nil(t, err, "Unexpected GetTask error")
 	assert.Equal(t, task, DBStorage.tasks[12346], "Recieved task differs with task in storage")
 	cacheTask, ok := cacheStorage.tasks[12346]
@@ -204,7 +205,7 @@ func TestGetTaskFromDBWithBrokenCache(t *testing.T) {
 	// This ID persists in cache and in DB. Now we should get it from db and not save to the cache
 	cacheStorage.IDToFail = 12345
 	originalCacheTask := cacheStorage.tasks[12345]
-	task, err := storageController.GetTask(12345)
+	task, err := storageController.GetTask(context.Background(), 12345)
 	assert.Nil(t, err, "Unexpected GetTask error")
 	assert.Equal(t, task, DBStorage.tasks[12345], "Recieved task differs with task in storage")
 	assert.Equal(t, originalCacheTask, cacheStorage.tasks[12345], "Task was updated in cache, but shouldn't")
@@ -217,7 +218,7 @@ func TestSaveTaskToDBAndCache(t *testing.T) {
 	taskToSave := cacheStorage.tasks[12345]
 	delete(cacheStorage.tasks, 12345)
 	delete(DBStorage.tasks, 12345)
-	err := storageController.SaveTask(taskToSave)
+	err := storageController.SaveTask(context.Background(), taskToSave)
 	assert.Nil(t, err, "Unexpected SaveTask error")
 	task, ok := cacheStorage.tasks[12345]
 	if assert.True(t, ok, "Task missed in cache after SaveTask") {
@@ -237,7 +238,7 @@ func TestSaveTaskWithBrokenCache(t *testing.T) {
 	delete(cacheStorage.tasks, 12345)
 	delete(DBStorage.tasks, 12345)
 	cacheStorage.IDToFail = 12345
-	err := storageController.SaveTask(taskToSave)
+	err := storageController.SaveTask(context.Background(), taskToSave)
 	assert.Nil(t, err, "Unexpected SaveTask error")
 	_, ok := cacheStorage.tasks[12345]
 	assert.False(t, ok, "The task has been saved to the broken cache?!")
@@ -255,7 +256,7 @@ func TestSaveTaskWithBrokenDB(t *testing.T) {
 	delete(cacheStorage.tasks, 12345)
 	delete(DBStorage.tasks, 12345)
 	DBStorage.IDToFail = 12345
-	err := storageController.SaveTask(taskToSave)
+	err := storageController.SaveTask(context.Background(), taskToSave)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SaveTask error")
 	_, ok := DBStorage.tasks[12345]
 	assert.False(t, ok, "Task saved to the broken DB?!")
@@ -274,7 +275,7 @@ func TestSaveTaskWithBrokenAll(t *testing.T) {
 	delete(DBStorage.tasks, 12345)
 	DBStorage.IDToFail = 12345
 	cacheStorage.IDToFail = 12345
-	err := storageController.SaveTask(taskToSave)
+	err := storageController.SaveTask(context.Background(), taskToSave)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unxpected SaveTask error")
 	_, ok := DBStorage.tasks[12345]
 	assert.False(t, ok, "Task saved to the broken DB?!")
@@ -293,7 +294,7 @@ func TestSaveTaskToDBAndReplace(t *testing.T) {
 	taskToSave.ItemID = 88888
 	taskToSave.Hints = []string{"New one"}
 
-	err := storageController.SaveTask(taskToSave)
+	err := storageController.SaveTask(context.Background(), taskToSave)
 	assert.Nil(t, err, "Unxpected SaveTask error")
 	task, ok := cacheStorage.tasks[12345]
 	if assert.True(t, ok, "Task missed in cache after SaveTask") {
@@ -369,7 +370,7 @@ func TestGetSubscribedUsers(t *testing.T) {
 				user.Subscribed = false
 			}
 		}
-		list, err := storageController.GetSubscribedUsers()
+		list, err := storageController.GetSubscribedUsers(context.Background())
 		assert.Nil(t, err, "Unexpected GetSubscribedUsers error")
 		sort.Slice(list, func(i, j int) bool {
 			return list[i].ID < list[j].ID
@@ -388,7 +389,7 @@ func TestGetSubscribedUsersWithError(t *testing.T) {
 		usersDB: usersStore,
 	}
 	usersStore.getSubscribedUsersMustFail = true
-	list, err := storageController.GetSubscribedUsers()
+	list, err := storageController.GetSubscribedUsers(context.Background())
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected GetSubscribedUsers error")
 	assert.Equal(t, list, []common.User{}, "Empty list should be returned from GetSubscribedUsers on error")
 	assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers"}, "Unexpected users store call list")
@@ -407,7 +408,7 @@ func TestSubscribeUserNew(t *testing.T) {
 		LastName:   "1000lastname",
 		Subscribed: false,
 	}
-	err := storageController.SubscribeUser(newUser)
+	err := storageController.SubscribeUser(context.Background(), newUser)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	newUser.Subscribed = true
 	assert.Equal(t, *usersStore.users[1000], newUser, "Stored user differ with the sent one")
@@ -420,7 +421,7 @@ func TestSubscribeUserOld(t *testing.T) {
 		usersDB: usersStore,
 	}
 	user := *usersStore.users[1124]
-	err := storageController.SubscribeUser(user)
+	err := storageController.SubscribeUser(context.Background(), user)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = true
 	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
@@ -434,7 +435,7 @@ func TestSubscribeUserAlreadySubscribed(t *testing.T) {
 	}
 	usersStore.users[1124].Subscribed = true
 	userToSend := *usersStore.users[1124]
-	err := storageController.SubscribeUser(userToSend)
+	err := storageController.SubscribeUser(context.Background(), userToSend)
 	assert.Equal(t, err, ErrUserAlreadySubscribed, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
 	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
@@ -447,7 +448,7 @@ func TestSubscribeUserWithError(t *testing.T) {
 	}
 	usersStore.IDToFail = 1124
 	userToSend := *usersStore.users[1124]
-	err := storageController.SubscribeUser(userToSend)
+	err := storageController.SubscribeUser(context.Background(), userToSend)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
 	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
@@ -458,7 +459,7 @@ func TestUnsubscribeUserNew(t *testing.T) {
 	storageController := YDBandFileCacheController{
 		usersDB: usersStore,
 	}
-	err := storageController.UnsubscribeUser(1000)
+	err := storageController.UnsubscribeUser(context.Background(), 1000)
 	assert.Equal(t, err, ErrUserAlreadyUnsubscribed, "Unexpected SubscribeUser error")
 	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1000"}, "Unexpected users store call list")
 }
@@ -469,7 +470,7 @@ func TestUnsubscribeUserOldNotSubscribed(t *testing.T) {
 		usersDB: usersStore,
 	}
 	user := *usersStore.users[1124]
-	err := storageController.UnsubscribeUser(1124)
+	err := storageController.UnsubscribeUser(context.Background(), 1124)
 	assert.Equal(t, err, ErrUserAlreadyUnsubscribed, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
 	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
@@ -481,7 +482,7 @@ func TestUnsubscribeUserAlreadySubscribed(t *testing.T) {
 		usersDB: usersStore,
 	}
 	user := *usersStore.users[1126]
-	err := storageController.UnsubscribeUser(1126)
+	err := storageController.UnsubscribeUser(context.Background(), 1126)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = false
 	assert.Equal(t, *usersStore.users[1126], user, "Stored user differ with the sent one")
@@ -495,7 +496,7 @@ func TestUnsubscribeUserWithError(t *testing.T) {
 	}
 	usersStore.IDToFail = 1124
 	userToSend := *usersStore.users[1124]
-	err := storageController.UnsubscribeUser(1124)
+	err := storageController.UnsubscribeUser(context.Background(), 1124)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
 	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")

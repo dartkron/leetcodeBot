@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -25,25 +26,25 @@ var ErrUserAlreadyUnsubscribed = errors.New("already unsubscribed, nothing to do
 var ErrNoActiveUsersStorage = errors.New("users storage isn't configured")
 
 type tasksStorekeeper interface {
-	getTask(uint64) (common.BotLeetCodeTask, error)
-	saveTask(common.BotLeetCodeTask) error
+	getTask(context.Context, uint64) (common.BotLeetCodeTask, error)
+	saveTask(context.Context, common.BotLeetCodeTask) error
 }
 
 type usersStorekeeper interface {
-	getUser(uint64) (common.User, error)
-	saveUser(common.User) error
-	subscribeUser(uint64) error
-	unsubscribeUser(uint64) error
-	getSubscribedUsers() ([]common.User, error)
+	getUser(context.Context, uint64) (common.User, error)
+	saveUser(context.Context, common.User) error
+	subscribeUser(context.Context, uint64) error
+	unsubscribeUser(context.Context, uint64) error
+	getSubscribedUsers(context.Context) ([]common.User, error)
 }
 
 // Controller should hide logic of storage layers inside
 type Controller interface {
-	GetTask(uint64) (common.BotLeetCodeTask, error)
-	SaveTask(common.BotLeetCodeTask) error
-	SubscribeUser(common.User) error
-	UnsubscribeUser(uint64) error
-	GetSubscribedUsers() ([]common.User, error)
+	GetTask(context.Context, uint64) (common.BotLeetCodeTask, error)
+	SaveTask(context.Context, common.BotLeetCodeTask) error
+	SubscribeUser(context.Context, common.User) error
+	UnsubscribeUser(context.Context, uint64) error
+	GetSubscribedUsers(context.Context) ([]common.User, error)
 }
 
 // YDBandFileCacheController is an instance of Controller which store users in database and store tasks into cache AND database
@@ -53,50 +54,50 @@ type YDBandFileCacheController struct {
 	usersDB    usersStorekeeper
 }
 
-func (s *YDBandFileCacheController) getTaskFromStorage(storage tasksStorekeeper, dateID uint64) (common.BotLeetCodeTask, error) {
+func (s *YDBandFileCacheController) getTaskFromStorage(ctx context.Context, storage tasksStorekeeper, dateID uint64) (common.BotLeetCodeTask, error) {
 	if storage == nil {
 		return common.BotLeetCodeTask{}, ErrNoSuchTask
 	}
-	return storage.getTask(dateID)
+	return storage.getTask(ctx, dateID)
 }
 
-func (s *YDBandFileCacheController) getTaskFromCache(dateID uint64) (common.BotLeetCodeTask, error) {
-	return s.getTaskFromStorage(s.tasksCache, dateID)
+func (s *YDBandFileCacheController) getTaskFromCache(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
+	return s.getTaskFromStorage(ctx, s.tasksCache, dateID)
 }
 
-func (s *YDBandFileCacheController) getTaskFromDB(dateID uint64) (common.BotLeetCodeTask, error) {
-	return s.getTaskFromStorage(s.tasksDB, dateID)
+func (s *YDBandFileCacheController) getTaskFromDB(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
+	return s.getTaskFromStorage(ctx, s.tasksDB, dateID)
 }
 
-func (s *YDBandFileCacheController) saveTaskToStorage(storage tasksStorekeeper, task common.BotLeetCodeTask) error {
+func (s *YDBandFileCacheController) saveTaskToStorage(ctx context.Context, storage tasksStorekeeper, task common.BotLeetCodeTask) error {
 	if storage == nil {
 		return nil
 	}
-	return storage.saveTask(task)
+	return storage.saveTask(ctx, task)
 }
 
-func (s *YDBandFileCacheController) saveTaskToCache(task common.BotLeetCodeTask) error {
-	return s.saveTaskToStorage(s.tasksCache, task)
+func (s *YDBandFileCacheController) saveTaskToCache(ctx context.Context, task common.BotLeetCodeTask) error {
+	return s.saveTaskToStorage(ctx, s.tasksCache, task)
 }
 
-func (s *YDBandFileCacheController) saveTaskToDB(task common.BotLeetCodeTask) error {
-	return s.saveTaskToStorage(s.tasksDB, task)
+func (s *YDBandFileCacheController) saveTaskToDB(ctx context.Context, task common.BotLeetCodeTask) error {
+	return s.saveTaskToStorage(ctx, s.tasksDB, task)
 }
 
 // GetTask retrive task from all layers of storage in order and return ErrNoSuchTask if task isn't found
-func (s *YDBandFileCacheController) GetTask(dateID uint64) (common.BotLeetCodeTask, error) {
-	task, err := s.getTaskFromCache(dateID)
+func (s *YDBandFileCacheController) GetTask(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
+	task, err := s.getTaskFromCache(ctx, dateID)
 	if err != nil {
 		if err != ErrNoSuchTask {
 			fmt.Printf("Error on geting task from cache: %q. Fallback to database.\n", err)
 		}
-		task, err := s.getTaskFromDB(dateID)
+		task, err := s.getTaskFromDB(ctx, dateID)
 		if err != nil {
 			return task, err
 		}
 
 		// Since there were no such task in cache, let's add it
-		err = s.saveTaskToCache(task)
+		err = s.saveTaskToCache(ctx, task)
 		if err != nil {
 			// Have cache is a good idea, but no reason to stop show if it's broken
 			fmt.Printf("Error on saving task to cache:: %q\n", err)
@@ -107,41 +108,41 @@ func (s *YDBandFileCacheController) GetTask(dateID uint64) (common.BotLeetCodeTa
 }
 
 // SaveTask save task to all layers of storage
-func (s *YDBandFileCacheController) SaveTask(task common.BotLeetCodeTask) error {
-	err := s.saveTaskToCache(task)
+func (s *YDBandFileCacheController) SaveTask(ctx context.Context, task common.BotLeetCodeTask) error {
+	err := s.saveTaskToCache(ctx, task)
 	if err != nil {
 		fmt.Printf("Error on saving task to cache:: %q\n", err)
 	}
-	return s.saveTaskToDB(task)
+	return s.saveTaskToDB(ctx, task)
 }
 
 // SubscribeUser subscribe and create user in storage if necessary.
 // Returns ErrNoSuchUser ErrUserAlreadySubscribed if user were already subscribed
-func (s *YDBandFileCacheController) SubscribeUser(user common.User) error {
+func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user common.User) error {
 	if s.usersDB == nil {
 		return ErrNoActiveUsersStorage
 	}
-	storedUser, err := s.usersDB.getUser(user.ID)
+	storedUser, err := s.usersDB.getUser(ctx, user.ID)
 	if err != nil {
 		if err == ErrNoSuchUser {
 			user.Subscribed = true
-			err = s.usersDB.saveUser(user)
+			err = s.usersDB.saveUser(ctx, user)
 		}
 		return err
 	}
 	if storedUser.Subscribed {
 		return ErrUserAlreadySubscribed
 	}
-	return s.usersDB.subscribeUser(user.ID)
+	return s.usersDB.subscribeUser(ctx, user.ID)
 }
 
 // UnsubscribeUser unsubscribing user with userID.
 // Returns ErrUserAlreadyUnsubscribed if user were already subscribed
-func (s *YDBandFileCacheController) UnsubscribeUser(userID uint64) error {
+func (s *YDBandFileCacheController) UnsubscribeUser(ctx context.Context, userID uint64) error {
 	if s.usersDB == nil {
 		return ErrNoActiveUsersStorage
 	}
-	user, err := s.usersDB.getUser(userID)
+	user, err := s.usersDB.getUser(ctx, userID)
 	if err != nil {
 		if err == ErrNoSuchUser {
 			err = ErrUserAlreadyUnsubscribed
@@ -151,15 +152,15 @@ func (s *YDBandFileCacheController) UnsubscribeUser(userID uint64) error {
 	if !user.Subscribed {
 		return ErrUserAlreadyUnsubscribed
 	}
-	return s.usersDB.unsubscribeUser(user.ID)
+	return s.usersDB.unsubscribeUser(ctx, user.ID)
 }
 
 // GetSubscribedUsers necessary when we need to send notification to all subscribed users
-func (s *YDBandFileCacheController) GetSubscribedUsers() ([]common.User, error) {
+func (s *YDBandFileCacheController) GetSubscribedUsers(ctx context.Context) ([]common.User, error) {
 	if s.usersDB == nil {
 		return []common.User{}, ErrNoActiveUsersStorage
 	}
-	return s.usersDB.getSubscribedUsers()
+	return s.usersDB.getSubscribedUsers(ctx)
 }
 
 // NewYDBandFileCacheController constructs default storage controller

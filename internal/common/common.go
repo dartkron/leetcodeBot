@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,6 +33,9 @@ const (
 	// DifficultyRequest means that callback require only difficulty
 	DifficultyRequest
 )
+
+// ErrClosedContext universal error about closed context
+var ErrClosedContext error = errors.New("context closed during execution")
 
 // CallbackData stuct for unmarshal JSON in callbackRequests and marshal in inlineKeyboard building
 type CallbackData struct {
