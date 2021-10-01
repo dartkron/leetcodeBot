@@ -15,13 +15,12 @@ CREATE TABLE `dailyQuestion`
     `id` Uint64,
     `difficulty` Uint8,
     `hints` String,
-    `itemId` Uint64,
     `questionId` Uint64,
     `text` String,
     `title` String,
+    `titleSlug` String,
     PRIMARY KEY (`id`)
 );
-
 
 CREATE TABLE `users`
 (
@@ -53,9 +52,8 @@ Plan to add:
 Most likely it's a proof of concept. Only recieving of tasks if coded for now.
 Example:
 ```go
-package main
-
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -66,7 +64,9 @@ func main() {
 	leetcodeClient := leetcodeclient.NewLeetCodeGraphQlClient()
 	loc, _ := time.LoadLocation("US/Pacific")
 	now := time.Date(2021, time.September, 26, 0, 0, 0, 0, loc)
-	task, err := leetcodeClient.GetDailyTask(now)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(5))
+	defer cancelFunc()
+	task, err := leetcodeClient.GetDailyTask(ctx, now)
 	if err != nil {
 		fmt.Println("Got error from LeetcodeClient", err)
 	}
