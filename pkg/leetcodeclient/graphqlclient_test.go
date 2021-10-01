@@ -2,229 +2,302 @@ package leetcodeclient
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/dartkron/leetcodeBot/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-var ErrBypassTest error = errors.New("test bypass error")
-
-type mockerResponse struct {
-	bytes []byte
-	err   error
-}
-
 type MockRequester struct {
-	responses map[string]mockerResponse
+	mock.Mock
 }
 
 func (r *MockRequester) requestGraphQl(ctx context.Context, request graphQlRequest) ([]byte, error) {
-	bytes, _ := json.Marshal(request)
-	req := string(bytes)
-	if _, ok := r.responses[req]; !ok {
-		fmt.Printf("Request %q not found in requests map!\n", req)
-		return []byte{}, nil
-	}
-	return r.responses[req].bytes, r.responses[req].err
+	args := r.Called(request)
+	return args.Get(0).([]byte), args.Error(1)
 }
 
-type slugTest struct {
+type sliceDateChallengesError struct {
+	date       time.Time
+	challenges []challengeDesc
+	err        error
+}
+
+type sliceDateStringError struct {
 	date time.Time
-	slug string
-}
-
-func TestGetSlug(t *testing.T) {
-	loc, _ := time.LoadLocation("US/Pacific")
-	testCases := []slugTest{
-		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), "april-leetcoding-challenge-1986"},
-		{time.Date(1988, time.January, 31, 23, 59, 59, 0, loc), "january-leetcoding-challenge-1988"},
-		{time.Date(1988, time.January, 31, 0, 0, 0, 0, loc), "january-leetcoding-challenge-1988"},
-	}
-
-	client := NewLeetCodeGraphQlClient()
-	client.transport = &MockRequester{}
-	for _, testCase := range testCases {
-		slug := client.getSlug(testCase.date)
-		if slug != testCase.slug {
-			t.Errorf("Got slug:\n%q\nbut:\n%q\nawaited", slug, testCase.slug)
-		}
-	}
-}
-
-type dateAndSliceStringsWithError struct {
-	date    time.Time
-	strings []string
-	err     error
-}
-
-func getSettedLeetcodeClient() *LeetCodeGraphQlClient {
-	slugMap := "{\"operationName\":\"GetChaptersWithItems\",\"variables\":{\"cardSlug\":\"%s\"},\"query\":\"query GetChaptersWithItems($cardSlug: String!) { chapters(cardSlug: $cardSlug) { items {id title type }}}\"}"
-	questionSlugMapReq := "{\"operationName\":\"GetItem\",\"variables\":{\"itemId\":\"%s\"},\"query\":\"query GetItem($itemId: String!) {item(id: $itemId) { question { titleSlug }}}\"}"
-	questionSlugMapResp := "{\"data\":{\"item\":{\"question\":{\"titleSlug\":\"%s\"}}}}"
-	taskRequestMap := "{\"operationName\":\"GetQuestion\",\"variables\":{\"titleSlug\":\"%s\"},\"query\":\"query GetQuestion($titleSlug: String!) {question(titleSlug: $titleSlug) { questionId questionTitle difficulty content hints }}\"}"
-	client := newLeetCodeGraphQlClient(&MockRequester{
-		responses: map[string]mockerResponse{
-			fmt.Sprintf(slugMap, "april-leetcoding-challenge-1986"): {[]byte{}, ErrBypassTest},
-			fmt.Sprintf(slugMap, "august-leetcoding-challenge-1995"): {
-				[]byte("{\"data\":{\"chapters\":[{\"items\":[{\"id\":\"6655\",\"title\":\"Test title\",\"type\":1},{\"id\":\"2346\",\"title\":\"Test title2\",\"type\":1},{\"id\":\"5432\",\"title\":\"Test title3\",\"type\":1},{\"id\":\"7654\",\"title\":\"Test title4\",\"type\":1},{\"id\":\"7543\",\"title\":\"Test title5\",\"type\":1},{\"id\":\"7534\",\"title\":\"Test title6\",\"type\":1},{\"id\":\"12345\",\"title\":\"Test title6\",\"type\":1},{\"id\":\"9876\",\"title\":\"Test title7\",\"type\":1}]},{\"items\":[{\"id\":\"6574\",\"title\":\"Test title8\",\"type\":1},{\"id\":\"2345\",\"title\":\"Test title9\",\"type\":1},{\"id\":\"3567\",\"title\":\"Test title9\",\"type\":1},{\"id\":\"4565\",\"title\":\"Test title10\",\"type\":1},{\"id\":\"1245\",\"title\":\"Test title11\",\"type\":1},{\"id\":\"7656\",\"title\":\"Test title12\",\"type\":1},{\"id\":\"6754\",\"title\":\"Test title13\",\"type\":1},{\"id\":\"7654\",\"title\":\"Test title14\",\"type\":1}]},{\"items\":[{\"id\":\"4667\",\"title\":\"Test title15\",\"type\":1},{\"id\":\"6453\",\"title\":\"Test title16\",\"type\":1},{\"id\":\"6454\",\"title\":\"Test title17\",\"type\":1},{\"id\":\"8798\",\"title\":\"Test title18\",\"type\":1},{\"id\":\"6716\",\"title\":\"Test title19\",\"type\":1},{\"id\":\"8964\",\"title\":\"Test title20\",\"type\":1},{\"id\":\"8673\",\"title\":\"Test title21\",\"type\":1},{\"id\":\"5672\",\"title\":\"Test title22\",\"type\":1}]},{\"items\":[{\"id\":\"7654\",\"title\":\"Test title23\",\"type\":1},{\"id\":\"2345\",\"title\":\"Test title24\",\"type\":1},{\"id\":\"3565\",\"title\":\"Test title25\",\"type\":1},{\"id\":\"4567\",\"title\":\"Test title26\",\"type\":1},{\"id\":\"3567\",\"title\":\"Test title27\",\"type\":1},{\"id\":\"2345\",\"title\":\"Test title28\",\"type\":1}]},{\"items\":[]}]}}"),
-				nil,
-			},
-			fmt.Sprintf(slugMap, "may-leetcoding-challenge-1986"): {[]byte("\""), nil},
-
-			fmt.Sprintf(questionSlugMapReq, "2345"): {[]byte(fmt.Sprintf(questionSlugMapResp, "test-title28")), nil},
-			fmt.Sprintf(questionSlugMapReq, "2346"): {[]byte{}, ErrBypassTest},
-			fmt.Sprintf(questionSlugMapReq, "2347"): {[]byte(fmt.Sprintf(questionSlugMapResp, "test-title29")), nil},
-			fmt.Sprintf(questionSlugMapReq, "2348"): {[]byte("{\"}"), nil},
-			fmt.Sprintf(questionSlugMapReq, "2349"): {[]byte(fmt.Sprintf(questionSlugMapResp, "test-title30")), nil},
-
-			fmt.Sprintf(taskRequestMap, "test-title28"): {[]byte("{\"data\":{\"question\":{\"questionId\":\"6577\",\"questionTitle\":\"Test title28\",\"difficulty\":\"Easy\",\"content\":\"Very test content of test title28\",\"hints\":[\"First hint\", \"Last hint\"]}}}"), nil},
-			fmt.Sprintf(taskRequestMap, "test-title29"): {[]byte{}, ErrBypassTest},
-			fmt.Sprintf(taskRequestMap, "test-title30"): {[]byte("{\"}"), nil},
-		},
-	})
-	return client
-}
-
-func TestGetDailyTaskItemsIdsForMonth(t *testing.T) {
-	client := getSettedLeetcodeClient()
-	loc, _ := time.LoadLocation("US/Pacific")
-
-	testCases := []dateAndSliceStringsWithError{
-		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), []string{}, ErrBypassTest},
-		{time.Date(1995, time.August, 26, 01, 23, 47, 0, loc), []string{"2346", "5432", "7654", "7543", "7534", "12345", "9876", "2345", "3567", "4565", "1245", "7656", "6754", "7654", "6453", "6454", "8798", "6716", "8964", "8673", "5672", "2345", "3565", "4567", "3567", "2345"}, nil},
-		{time.Date(1986, time.May, 26, 01, 23, 47, 0, loc), []string{}, errors.New("unexpected end of JSON input")},
-	}
-	for _, testCase := range testCases {
-		tasks, err := client.getDailyTaskItemsIdsForMonth(context.Background(), testCase.date)
-		assert.Equal(t, testCase.strings, tasks, "Wrong tasks list returned")
-		if testCase.err != nil {
-			assert.Equal(t, testCase.err.Error(), err.Error(), "Wrong error returned")
-		} else {
-			assert.Nil(t, err, "Unexpected error returned")
-		}
-
-	}
-}
-
-type dateAndSliceStringWithError struct {
-	date time.Time
-	data string
+	str  string
 	err  error
 }
 
-func TestGetDailyTaskItemID(t *testing.T) {
-	client := getSettedLeetcodeClient()
+var errWrongJSON = errors.New("unexpected end of JSON input")
+
+func TestLeetcodeDateUnmarshal(t *testing.T) {
+	testDate := LeetcodeDate{}
+	err := testDate.UnmarshalJSON([]byte(""))
+	assert.Equal(t, "parsing time \"\" as \"2006-01-02\": cannot parse \"\" as \"2006\"", err.Error(), "Unexpected parse error")
+	err = testDate.UnmarshalJSON([]byte("1986-04-26"))
+	assert.Nil(t, err, "Unexprecred error")
 	loc, _ := time.LoadLocation("US/Pacific")
-	testCases := []dateAndSliceStringWithError{
-		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), "", ErrBypassTest},
-		{time.Date(1995, time.August, 26, 01, 23, 47, 0, loc), "2345", nil},
-		{time.Date(1995, time.August, 27, 01, 23, 47, 0, loc), "", fmt.Errorf("can't get 27 task for month August. Only 26 tasks isset")},
-		{time.Date(1995, time.August, 4, 01, 23, 47, 0, loc), "7543", nil},
-		{time.Date(1986, time.May, 26, 01, 23, 47, 0, loc), "", errors.New("unexpected end of JSON input")},
-	}
-	for _, testCase := range testCases {
-		itemID, err := client.GetDailyTaskItemID(context.Background(), testCase.date)
-		assert.Equal(t, itemID, testCase.data, "Wrong itemID returned")
-		if testCase.err == nil {
-			assert.Nil(t, err, "Unexpected error returned")
-		} else {
-			assert.Equal(t, testCase.err.Error(), err.Error(), "Wrong error returned")
-		}
-	}
+	assert.Equal(t, time.Date(1986, time.April, 26, 0, 0, 0, 0, loc), time.Time(testDate), "Unexpected date after parse")
+
+	err = testDate.UnmarshalJSON([]byte("2029-12-31"))
+	assert.Nil(t, err, "Unexprecred error")
+	assert.Equal(t, time.Date(2029, time.December, 31, 0, 0, 0, 0, loc), time.Time(testDate), "Unexpected date after parse")
+	err = testDate.UnmarshalJSON([]byte("2030-01-01"))
+	assert.Nil(t, err, "Unexprecred error")
+	assert.Equal(t, time.Date(2030, time.January, 01, 0, 0, 0, 0, loc), time.Time(testDate), "Unexpected date after parse")
 }
 
-type taskAndErr struct {
+func TestGetMonthlyQuestionsSlugs(t *testing.T) {
+	client := NewLeetCodeGraphQlClient()
+	mockRequester := &MockRequester{}
+	client.transport = mockRequester
+	loc, _ := time.LoadLocation("US/Pacific")
+	chaptersReq := client.getDailyQuestionsSlugsReq
+	chaptersReq.Variables = map[string]string{
+		"year":  "1986",
+		"month": "4",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte(""),
+		tests.ErrBypassTest,
+	).Times(1)
+	chaptersReq.Variables = map[string]string{
+		"year":  "1995",
+		"month": "8",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte("{\"data\":{\"dailyCodingChallengeV2\":{\"challenges\":[{\"date\":\"1995-08-01\",\"question\":{\"titleSlug\":\"test-title\"}},{\"date\":\"1995-08-02\",\"question\":{\"titleSlug\":\"test-title2\"}},{\"date\":\"1995-08-03\",\"question\":{\"titleSlug\":\"test-title3\"}}]}}}"),
+		nil,
+	).Times(1)
+	chaptersReq.Variables = map[string]string{
+		"year":  "1986",
+		"month": "5",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte("{\"}"),
+		nil,
+	).Times(1)
+	testCases := []sliceDateChallengesError{
+		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), []challengeDesc{}, tests.ErrBypassTest},
+		{time.Date(1995, time.August, 26, 01, 23, 47, 0, loc), []challengeDesc{{Date: LeetcodeDate(time.Date(1995, time.August, 1, 0, 0, 0, 0, loc)), Question: struct {
+			TitleSlug string "json:\"titleSlug\""
+		}{TitleSlug: "test-title"}}, {Date: LeetcodeDate(time.Date(1995, time.August, 2, 0, 0, 0, 0, loc)), Question: struct {
+			TitleSlug string "json:\"titleSlug\""
+		}{TitleSlug: "test-title2"}}, {Date: LeetcodeDate(time.Date(1995, time.August, 3, 0, 0, 0, 0, loc)), Question: struct {
+			TitleSlug string "json:\"titleSlug\""
+		}{TitleSlug: "test-title3"}}}, nil},
+		{time.Date(1986, time.May, 26, 01, 23, 47, 0, loc), []challengeDesc(nil), errWrongJSON},
+	}
+	for _, testCase := range testCases {
+		res, err := client.getMonthlyQuestionsSlugs(context.Background(), testCase.date)
+		if testCase.err == nil {
+			assert.Nil(t, err, "Unexpected error")
+		} else {
+			assert.Equal(t, testCase.err.Error(), err.Error(), "Unexpected error")
+		}
+		assert.Equal(t, testCase.challenges, res, "Unexpected response")
+	}
+	mockRequester.AssertExpectations(t)
+}
+
+func TestGetDailyQuestionSlug(t *testing.T) {
+	client := NewLeetCodeGraphQlClient()
+	mockRequester := &MockRequester{}
+	client.transport = mockRequester
+	loc, _ := time.LoadLocation("US/Pacific")
+	chaptersReq := client.getDailyQuestionsSlugsReq
+	chaptersReq.Variables = map[string]string{
+		"year":  "1986",
+		"month": "4",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte(""),
+		tests.ErrBypassTest,
+	).Times(1)
+	chaptersReq.Variables = map[string]string{
+		"year":  "1995",
+		"month": "8",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte("{\"data\":{\"dailyCodingChallengeV2\":{\"challenges\":[{\"date\":\"1995-08-01\",\"question\":{\"titleSlug\":\"test-title\"}},{\"date\":\"1995-08-02\",\"question\":{\"titleSlug\":\"test-title2\"}},{\"date\":\"1995-08-03\",\"question\":{\"titleSlug\":\"test-title3\"}}]}}}"),
+		nil,
+	).Times(4)
+	testCases := []sliceDateStringError{
+		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), "", tests.ErrBypassTest},
+		{time.Date(1995, time.August, 1, 01, 23, 47, 0, loc), "test-title", nil},
+		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), "test-title2", nil},
+		{time.Date(1995, time.August, 3, 01, 23, 47, 0, loc), "test-title3", nil},
+		{time.Date(1995, time.August, 4, 01, 23, 47, 0, loc), "", errors.New("can't get 4 task for month August. Only 3 tasks isset")},
+	}
+	for _, testCase := range testCases {
+		slug, err := client.GetDailyQuestionSlug(context.Background(), testCase.date)
+		if testCase.err == nil {
+			assert.Nil(t, err, "Unexpected error")
+		} else {
+			assert.Equal(t, testCase.err.Error(), err.Error(), "Unexpected error")
+		}
+		assert.Equal(t, testCase.str, slug, "Unexpected response")
+	}
+	mockRequester.AssertExpectations(t)
+}
+
+type sliceStringLeetcodeTaskError struct {
+	str  string
 	task LeetCodeTask
 	err  error
 }
 
-func TestGetQuestionDetailsByItemID(t *testing.T) {
-	client := getSettedLeetcodeClient()
-	testCases := map[string]taskAndErr{
-		"2346": {LeetCodeTask{}, ErrBypassTest},
-		"2347": {LeetCodeTask{}, ErrBypassTest},
-		"2345": {
-			LeetCodeTask{
-				QuestionID: 6577,
-				ItemID:     2345,
-				Title:      "Test title28",
-				Content:    "Very test content of test title28",
-				Hints:      []string{"First hint", "Last hint"},
-				Difficulty: "Easy",
-			},
-			nil},
-		"2349": {LeetCodeTask{}, errors.New("unexpected end of JSON input")},
+func TestGetQuestionDetailsByTitleSlug(t *testing.T) {
+	client := NewLeetCodeGraphQlClient()
+	mockRequester := &MockRequester{}
+	client.transport = mockRequester
+	questionReq := client.getQuestionReq
+	questionReq.Variables["titleSlug"] = "test-title0"
+	mockRequester.On(
+		"requestGraphQl",
+		questionReq,
+	).Return(
+		[]byte{},
+		tests.ErrBypassTest,
+	).Times(1)
+	questionReq.Variables["titleSlug"] = "test-title"
+	mockRequester.On(
+		"requestGraphQl",
+		questionReq,
+	).Return(
+		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"]}}}"),
+		nil,
+	).Times(1)
+	questionReq.Variables["titleSlug"] = "test-title1"
+	mockRequester.On(
+		"requestGraphQl",
+		questionReq,
+	).Return(
+		[]byte("{\"}"),
+		nil,
+	).Times(1)
+
+	testCases := []sliceStringLeetcodeTaskError{
+		{"test-title0", LeetCodeTask{}, tests.ErrBypassTest},
+		{"test-title", LeetCodeTask{
+			QuestionID: 1254,
+			Title:      "Test title",
+			TitleSlug:  "test-title",
+			Difficulty: "Easy",
+			Content:    "<p>My very test content <code>with code</code></p>\n\n",
+			Hints:      []string{"First hint", "Second hint"},
+		}, nil},
+		{"test-title1", LeetCodeTask{}, errWrongJSON},
 	}
-	for itemID, testCase := range testCases {
-		task, err := client.GetQuestionDetailsByItemID(context.Background(), itemID)
+	for _, testCase := range testCases {
+		task, err := client.GetQuestionDetailsByTitleSlug(context.Background(), testCase.str)
 		if testCase.err == nil {
-			assert.Nil(t, err, "Unexpected error returned")
+			assert.Nil(t, err, "Unexpected error")
 		} else {
-			assert.Equal(t, testCase.err.Error(), err.Error(), "Wrong error returned")
+			assert.Equal(t, testCase.err.Error(), err.Error(), "Unexpected error")
 		}
-		assert.Equal(t, testCase.task, task, "Unexpected task returned")
+		assert.Equal(t, testCase.task, task, "Unexpected response")
 	}
+	mockRequester.AssertExpectations(t)
 }
 
-type dateTaskErr struct {
+type sliceDateLeetcodeTaskError struct {
 	date time.Time
 	task LeetCodeTask
 	err  error
 }
 
 func TestGetDailyTask(t *testing.T) {
+	client := NewLeetCodeGraphQlClient()
+	mockRequester := &MockRequester{}
+	client.transport = mockRequester
 	loc, _ := time.LoadLocation("US/Pacific")
-	client := getSettedLeetcodeClient()
-	testCases := []dateTaskErr{
-		{
-			time.Date(1995, time.August, 26, 01, 23, 47, 0, loc),
-			LeetCodeTask{
-				QuestionID: 6577,
-				ItemID:     2345,
-				Title:      "Test title28",
-				Content:    "Very test content of test title28",
-				Hints:      []string{"First hint", "Last hint"},
-				Difficulty: "Easy",
-			},
-			nil,
-		},
-		{
-			time.Date(1995, time.August, 1, 01, 23, 47, 0, loc),
-			LeetCodeTask{},
-			ErrBypassTest,
-		},
-		{
-			time.Date(1995, time.August, 29, 01, 23, 47, 0, loc),
-			LeetCodeTask{},
-			errors.New("can't get 29 task for month August. Only 26 tasks isset"),
-		},
-		{
-			time.Date(1986, time.May, 26, 01, 23, 47, 0, loc),
-			LeetCodeTask{},
-			errors.New("unexpected end of JSON input"),
-		},
+	chaptersReq := client.getDailyQuestionsSlugsReq
+	chaptersReq.Variables = map[string]string{
+		"year":  "1986",
+		"month": "4",
 	}
-
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte(""),
+		tests.ErrBypassTest,
+	).Times(1)
+	chaptersReq.Variables = map[string]string{
+		"year":  "1995",
+		"month": "8",
+	}
+	mockRequester.On(
+		"requestGraphQl",
+		chaptersReq,
+	).Return(
+		[]byte("{\"data\":{\"dailyCodingChallengeV2\":{\"challenges\":[{\"date\":\"1995-08-01\",\"question\":{\"titleSlug\":\"test-title\"}},{\"date\":\"1995-08-02\",\"question\":{\"titleSlug\":\"test-title2\"}},{\"date\":\"1995-08-03\",\"question\":{\"titleSlug\":\"test-title3\"}}]}}}"),
+		nil,
+	).Times(2)
+	questionReq := client.getQuestionReq
+	questionReq.Variables["titleSlug"] = "test-title2"
+	mockRequester.On(
+		"requestGraphQl",
+		questionReq,
+	).Return(
+		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"]}}}"),
+		nil,
+	).Times(1)
+	questionReq.Variables["titleSlug"] = "test-title3"
+	mockRequester.On(
+		"requestGraphQl",
+		questionReq,
+	).Return(
+		[]byte("{\"}"),
+		nil,
+	).Times(1)
+	testCases := []sliceDateLeetcodeTaskError{
+		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), LeetCodeTask{}, tests.ErrBypassTest},
+		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{
+			QuestionID: 1254,
+			Title:      "Test title",
+			TitleSlug:  "test-title2",
+			Difficulty: "Easy",
+			Content:    "<p>My very test content <code>with code</code></p>\n\n",
+			Hints:      []string{"First hint", "Second hint"},
+		}, nil},
+		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{}, errWrongJSON},
+	}
 	for _, testCase := range testCases {
 		task, err := client.GetDailyTask(context.Background(), testCase.date)
-		assert.Equal(t, testCase.task, task, "Wrong task returned")
 		if testCase.err == nil {
-			assert.Nil(t, err, "Unexpected error returned")
+			assert.Nil(t, err, "Unexpected error")
 		} else {
-			assert.Equal(t, testCase.err.Error(), err.Error(), "Wrong error returned")
+			assert.Equal(t, testCase.err.Error(), err.Error(), "Unexpected error")
 		}
+		assert.Equal(t, testCase.task, task, "Unexpected response")
 	}
-
+	mockRequester.AssertExpectations(t)
 }
 
 func TestNewLeetCodeGraphQlClient(t *testing.T) {
 	client := NewLeetCodeGraphQlClient()
-	assert.NotEmpty(t, client.getChaptersReq.OperationName, "getChaptersReq.OperationName must be configured in constructor")
-	assert.NotEmpty(t, client.getSlugReq.OperationName, "getSlugReq.OperationName must be configured in constructor")
+	assert.NotEmpty(t, client.getDailyQuestionsSlugsReq.OperationName, "getChaptersReq.OperationName must be configured in constructor")
 	assert.NotEmpty(t, client.getQuestionReq.OperationName, "getQuestionReq.OperationName must be configured in constructor")
 	assert.NotNil(t, client.transport, "transport must be configured in constructor")
 }

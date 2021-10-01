@@ -34,7 +34,7 @@ func TestGetTaskFileCache(t *testing.T) {
 			DateID: 21240926,
 			LeetCodeTask: leetcodeclient.LeetCodeTask{
 				QuestionID: 432,
-				ItemID:     3982,
+				TitleSlug:  "test-task1",
 				Title:      "Test question title",
 				Content:    "You are given an <code>n x n</code> something, do something <code>0</code> or <code>1</code>.\n\n",
 				Hints:      []string{"First hint is to be good", "Second hint is not to be evil"},

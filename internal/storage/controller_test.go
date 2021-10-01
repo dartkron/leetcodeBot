@@ -131,7 +131,7 @@ func getTestController() (*YDBandFileCacheController, *MockTasksStorekeeper, *Mo
 			12345: {
 				LeetCodeTask: leetcodeclient.LeetCodeTask{
 					QuestionID: 456,
-					ItemID:     566,
+					TitleSlug:  "slug-test",
 					Title:      "Test title",
 					Content:    "Test content",
 					Hints:      []string{"First one", "Second one"},
@@ -146,7 +146,7 @@ func getTestController() (*YDBandFileCacheController, *MockTasksStorekeeper, *Mo
 			12345: {
 				LeetCodeTask: leetcodeclient.LeetCodeTask{
 					QuestionID: 4534,
-					ItemID:     6655,
+					TitleSlug:  "test-slug",
 					Title:      "Very another test title",
 					Content:    "Absolutely different with cache content",
 					Hints:      []string{},
@@ -157,7 +157,7 @@ func getTestController() (*YDBandFileCacheController, *MockTasksStorekeeper, *Mo
 			12346: {
 				LeetCodeTask: leetcodeclient.LeetCodeTask{
 					QuestionID: 457,
-					ItemID:     567,
+					TitleSlug:  "very-test-slug",
 					Title:      "Test title1",
 					Content:    "Test content1",
 					Hints:      []string{"First one!", "Second one?"},
@@ -291,7 +291,7 @@ func TestSaveTaskToDBAndReplace(t *testing.T) {
 	taskToSave.Content += "change"
 	taskToSave.Title += "change"
 	taskToSave.Difficulty += "change"
-	taskToSave.ItemID = 88888
+	taskToSave.TitleSlug = "test-slug"
 	taskToSave.Hints = []string{"New one"}
 
 	err := storageController.SaveTask(context.Background(), taskToSave)

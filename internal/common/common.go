@@ -102,7 +102,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 		{
 			{
 				Text: "See task on LeetCode website",
-				URL:  fmt.Sprintf("https://leetcode.com/explore/item/%d", task.ItemID),
+				URL:  fmt.Sprintf("https://leetcode.com/problems/%s", task.TitleSlug),
 			},
 		},
 	}, listOfHints...)

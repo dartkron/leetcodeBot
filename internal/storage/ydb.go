@@ -17,21 +17,21 @@ const (
 	getTaskQuery = `
 	DECLARE $dateId AS Uint64;
 
-	SELECT title, text, questionId, itemId, hints, difficulty
+	SELECT title, text, questionId, titleSlug, hints, difficulty
 	FROM dailyQuestion
 	WHERE id = $dateId;
 	`
 	replaceTaskQuery = `
 	DECLARE $dateId AS Uint64;
 	DECLARE $questionId AS Uint64;
-	DECLARE $itemId AS Uint64;
+	DECLARE $titleSlug AS String;
 	DECLARE $title AS String;
 	DECLARE $content AS String;
 	DECLARE $hints AS String;
 	DECLARE $difficulty AS Uint8;
 
-	REPLACE INTO dailyQuestion (id, questionId, itemId, title, text, hints, difficulty)
-	VALUES ($dateId, $questionId, $itemId, $title, $content, $hints, $difficulty);
+	REPLACE INTO dailyQuestion (id, questionId, titleSlug, title, text, hints, difficulty)
+	VALUES ($dateId, $questionId, $titleSlug, $title, $content, $hints, $difficulty);
 	`
 	getUserQuery = `
 	DECLARE $userId AS Uint64;
@@ -120,6 +120,9 @@ func (y *ydbQueryExecuter) getConnection() (*connect.Connection, error) {
 			),
 		)
 	})
+	if y.connection == nil {
+		return nil, ErrNoActiveTasksStorage
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -173,20 +176,20 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 		title      *string
 		text       *string
 		questionID *uint64
-		itemID     *uint64
+		titleSlug  *string
 		hints      *string
 		difficulty *uint8
 	)
 
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
 
-	for res.NextResultSet(ctx, "title", "text", "questionId", "itemId", "hints", "difficulty") {
+	for res.NextResultSet(ctx, "title", "text", "questionId", "titleSlug", "hints", "difficulty") {
 		for res.NextRow() {
 			err = res.Scan(
 				&title,
 				&text,
 				&questionID,
-				&itemID,
+				&titleSlug,
 				&hints,
 				&difficulty,
 			)
@@ -196,7 +199,7 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 			returnValue.Title = *title
 			returnValue.Content = *text
 			returnValue.QuestionID = *questionID
-			returnValue.ItemID = *itemID
+			returnValue.TitleSlug = *titleSlug
 			returnValue.SetDifficultyFromNum(*difficulty)
 			err = json.Unmarshal([]byte(*hints), &returnValue.Hints)
 			if err != nil {
@@ -218,7 +221,7 @@ func (y *ydbStorage) saveTask(ctx context.Context, task common.BotLeetCodeTask) 
 	_, err = y.ydbExecuter.ProcessQuery(ctx, replaceTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
 		table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
-		table.ValueParam("$itemId", ydb.Uint64Value(task.ItemID)),
+		table.ValueParam("$titleSlug", ydb.StringValue([]byte(task.TitleSlug))),
 		table.ValueParam("$title", ydb.StringValue([]byte(task.Title))),
 		table.ValueParam("$content", ydb.StringValue([]byte(task.Content))),
 		table.ValueParam("$hints", ydb.StringValue(marshalledHints)),

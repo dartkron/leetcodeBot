@@ -25,6 +25,9 @@ var ErrUserAlreadyUnsubscribed = errors.New("already unsubscribed, nothing to do
 // but the situation with users is completely different: there is no other storage in the universe with our users.
 var ErrNoActiveUsersStorage = errors.New("users storage isn't configured")
 
+// ErrNoActiveTasksStorage by some reasong storage could not work
+var ErrNoActiveTasksStorage = errors.New("tasks storage isn't configured or not available")
+
 type tasksStorekeeper interface {
 	getTask(context.Context, uint64) (common.BotLeetCodeTask, error)
 	saveTask(context.Context, common.BotLeetCodeTask) error

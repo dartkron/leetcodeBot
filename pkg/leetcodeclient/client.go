@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -12,7 +11,7 @@ import (
 // LeetCodeTask is a necessary information about task at LeetCode
 type LeetCodeTask struct {
 	QuestionID uint64   `json:"questionId,string"`
-	ItemID     uint64   `json:"itemId,string"`
+	TitleSlug  string   `json:"titleSlug"`
 	Title      string   `json:"questionTitle"`
 	Content    string   `json:"content"`
 	Hints      []string `json:"hints"`
@@ -21,20 +20,39 @@ type LeetCodeTask struct {
 
 // LeetcodeClient represents abstract set of methods required from any possible kind of Leetcode client
 type LeetcodeClient interface {
-	GetDailyTaskItemID(context.Context, time.Time) (string, error)
-	GetQuestionDetailsByItemID(context.Context, string) (LeetCodeTask, error)
+	GetDailyQuestionSlug(context.Context, time.Time) (string, error)
+	GetQuestionDetailsByTitleSlug(context.Context, string) (LeetCodeTask, error)
 	GetDailyTask(context.Context, time.Time) (LeetCodeTask, error)
 }
 
-type chaptersDesc struct {
-	Data struct {
-		Chapters []struct {
-			Items []struct {
-				ID    string
-				Title string
-			}
-		}
+// LeetcodeDate time.Time with specific json unmarshaller to parse json dates
+type LeetcodeDate time.Time
+
+// UnmarshalJSON parsing date in format "2006-01-02" in json
+func (j *LeetcodeDate) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), "\"")
+	loc, _ := time.LoadLocation("US/Pacific")
+	t, err := time.ParseInLocation("2006-01-02", s, loc)
+	if err != nil {
+		return err
 	}
+	*j = LeetcodeDate(t)
+	return nil
+}
+
+type challengeDesc struct {
+	Date     LeetcodeDate `json:"date"`
+	Question struct {
+		TitleSlug string `json:"titleSlug"`
+	} `json:"question"`
+}
+
+type dailyCodingChallengeV2desc struct {
+	Data struct {
+		DailyCodingChallengeV2 struct {
+			Challenges []challengeDesc `json:"challenges"`
+		} `json:"dailyCodingChallengeV2"`
+	} `json:"data"`
 }
 
 type questionDesc struct {
@@ -43,25 +61,12 @@ type questionDesc struct {
 	}
 }
 
-type titleSlugDesc struct {
-	Data struct {
-		Item struct {
-			Question struct {
-				QuestionID string
-				Title      string
-				TitleSlug  string
-			}
-		}
-	}
-}
-
 // LeetCodeGraphQlClient realization of GraphQL client.
 // Potentially supports different requester types
 type LeetCodeGraphQlClient struct {
-	getChaptersReq graphQlRequest
-	getSlugReq     graphQlRequest
-	getQuestionReq graphQlRequest
-	transport      graphQlRequester
+	getDailyQuestionsSlugsReq graphQlRequest
+	getQuestionReq            graphQlRequest
+	transport                 graphQlRequester
 }
 
 type graphQlRequest struct {
@@ -74,69 +79,35 @@ type graphQlRequester interface {
 	requestGraphQl(context.Context, graphQlRequest) ([]byte, error)
 }
 
-func (c *LeetCodeGraphQlClient) getDailyTaskItemsIdsForMonth(ctx context.Context, date time.Time) ([]string, error) {
-	chaptersReq := c.getChaptersReq
-
-	cardSlug := c.getSlug(date)
-	chaptersReq.Variables = map[string]string{"cardSlug": cardSlug}
-	responseBytes, err := c.transport.requestGraphQl(ctx, chaptersReq)
-	if err != nil {
-		return []string{}, err
-	}
-	parsed := chaptersDesc{}
-	err = json.Unmarshal(responseBytes, &parsed)
-	resp := []string{}
-	for _, week := range parsed.Data.Chapters {
-		for i, item := range week.Items {
-			if i == 0 {
-				continue
-			}
-			resp = append(resp, item.ID)
-		}
-	}
-	return resp, err
-}
-
-func (c *LeetCodeGraphQlClient) getDailyTaskItemIDForDate(ctx context.Context, date time.Time) (string, error) {
-	forMonth, err := c.getDailyTaskItemsIdsForMonth(ctx, date)
+// GetDailyQuestionSlug provides slug for daily for the particular date
+func (c *LeetCodeGraphQlClient) GetDailyQuestionSlug(ctx context.Context, date time.Time) (string, error) {
+	monthlyChanngelgesSlugs, err := c.getMonthlyQuestionsSlugs(ctx, date)
 	if err != nil {
 		return "", err
 	}
-	if date.Day() > len(forMonth) {
-		return "", fmt.Errorf("can't get %d task for month %s. Only %d tasks isset", date.Day(), date.Month().String(), len(forMonth))
+	if len(monthlyChanngelgesSlugs) < date.Day() {
+		return "", fmt.Errorf("can't get %d task for month %s. Only %d tasks isset", date.Day(), date.Month().String(), len(monthlyChanngelgesSlugs))
 	}
-	return forMonth[date.Day()-1], nil
+	return monthlyChanngelgesSlugs[date.Day()-1].Question.TitleSlug, nil
 }
 
-// GetDailyTaskItemID retrieve itemId for task of the day on provided date
-func (c *LeetCodeGraphQlClient) GetDailyTaskItemID(ctx context.Context, date time.Time) (string, error) {
-	return c.getDailyTaskItemIDForDate(ctx, date)
-}
-
-func (c *LeetCodeGraphQlClient) getSlug(date time.Time) string {
-	return fmt.Sprintf("%s-leetcoding-challenge-%d", strings.ToLower(date.Month().String()), date.Year())
-}
-
-func (c *LeetCodeGraphQlClient) getQuestionSlug(ctx context.Context, itemID string) (string, error) {
-	slugReq := c.getSlugReq
-	slugReq.Variables["itemId"] = itemID
-	responseBytes, err := c.transport.requestGraphQl(ctx, slugReq)
+func (c *LeetCodeGraphQlClient) getMonthlyQuestionsSlugs(ctx context.Context, date time.Time) ([]challengeDesc, error) {
+	monthlyQuestionsReq := c.getDailyQuestionsSlugsReq
+	monthlyQuestionsReq.Variables["month"] = fmt.Sprintf("%d", int(date.Month()))
+	monthlyQuestionsReq.Variables["year"] = fmt.Sprintf("%d", date.Year())
+	responseBytes, err := c.transport.requestGraphQl(ctx, monthlyQuestionsReq)
 	if err != nil {
-		return "", err
+		return []challengeDesc{}, err
 	}
-	parsed := titleSlugDesc{}
+	parsed := dailyCodingChallengeV2desc{}
 	err = json.Unmarshal(responseBytes, &parsed)
-	return parsed.Data.Item.Question.TitleSlug, err
+	return parsed.Data.DailyCodingChallengeV2.Challenges, err
 }
 
-// GetQuestionDetailsByItemID provides all details of the question: title, text, hints, difficulty by provided itemID
-func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(ctx context.Context, itemID string) (LeetCodeTask, error) {
+// GetQuestionDetailsByTitleSlug provides all details of the question: title, text, hints, difficulty by provided titleSlug
+func (c *LeetCodeGraphQlClient) GetQuestionDetailsByTitleSlug(ctx context.Context, titleSlug string) (LeetCodeTask, error) {
 	questionReq := c.getQuestionReq
-	questionSlug, err := c.getQuestionSlug(ctx, itemID)
-	if err != nil {
-		return LeetCodeTask{}, err
-	}
-	questionReq.Variables["titleSlug"] = questionSlug
+	questionReq.Variables["titleSlug"] = titleSlug
 
 	responseBytes, err := c.transport.requestGraphQl(ctx, c.getQuestionReq)
 	if err != nil {
@@ -148,18 +119,17 @@ func (c *LeetCodeGraphQlClient) GetQuestionDetailsByItemID(ctx context.Context, 
 	if err != nil {
 		return parsed.Data.Question, err
 	}
-	parsed.Data.Question.ItemID, err = strconv.ParseUint(itemID, 10, 64)
+	parsed.Data.Question.TitleSlug = titleSlug
 	return parsed.Data.Question, err
 }
 
-// GetDailyTask shortcut of GetDailyTaskItemID and GetQuestionDetailsByItemID
+// GetDailyTask shortcut of GetDailyTaskItemID and GetQuestionDetailsByTitleSlug
 func (c *LeetCodeGraphQlClient) GetDailyTask(ctx context.Context, date time.Time) (LeetCodeTask, error) {
-	itemID, err := c.GetDailyTaskItemID(ctx, date)
+	questionSlug, err := c.GetDailyQuestionSlug(ctx, date)
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
-	task, err := c.GetQuestionDetailsByItemID(ctx, itemID)
-	return task, err
+	return c.GetQuestionDetailsByTitleSlug(ctx, questionSlug)
 }
 
 // NewLeetCodeGraphQlClient construct LeetCode client with default values
@@ -169,14 +139,10 @@ func NewLeetCodeGraphQlClient() *LeetCodeGraphQlClient {
 
 func newLeetCodeGraphQlClient(requester graphQlRequester) *LeetCodeGraphQlClient {
 	client := LeetCodeGraphQlClient{
-		getChaptersReq: graphQlRequest{
-			OperationName: "GetChaptersWithItems",
-			Query:         "query GetChaptersWithItems($cardSlug: String!) { chapters(cardSlug: $cardSlug) { items {id title type }}}",
-		},
-		getSlugReq: graphQlRequest{
-			OperationName: "GetItem",
-			Variables:     make(map[string]string),
-			Query:         "query GetItem($itemId: String!) {item(id: $itemId) { question { titleSlug }}}",
+		getDailyQuestionsSlugsReq: graphQlRequest{
+			OperationName: "dailyCodingQuestionRecords",
+			Query: `query dailyCodingQuestionRecords($year: Int!, $month: Int!) { dailyCodingChallengeV2(year: $year, month: $month) { challenges {	date question { titleSlug } } } }`,
+			Variables: make(map[string]string),
 		},
 		getQuestionReq: graphQlRequest{
 			OperationName: "GetQuestion",

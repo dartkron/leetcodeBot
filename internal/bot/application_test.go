@@ -103,7 +103,7 @@ func TestGetMainKeyboard(t *testing.T) {
 
 func getTodaySendMessageString(chatID uint64) string {
 	template := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":%d,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"" +
-		"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}]," +
+		"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/problems/6534\\\"}]," +
 		"[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"DATEID_PLACE\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"}," +
 		"{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"DATEID_PLACE\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}]," +
 		"[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":" +
@@ -186,7 +186,7 @@ func TestSendDailyTaskToSubscribedUsers(t *testing.T) {
 		DateID: taskDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -242,7 +242,7 @@ func TestSendDailyTaskToSubscribedUsersError(t *testing.T) {
 		DateID: taskDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -310,7 +310,7 @@ func TestGetTodayTaskFromAllPossibleSourcesFromClient(t *testing.T) {
 		DateID: todayDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 202,
-			ItemID:     667,
+			TitleSlug:  "667",
 			Title:      "Test task from client",
 			Content:    "Test content from client",
 			Hints:      []string{"one hint", "second hint"},
@@ -343,7 +343,7 @@ func TestGetTodayTaskFromAllPossibleSourcesFromClientWithErrorFromStorage(t *tes
 		DateID: todayDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 202,
-			ItemID:     667,
+			TitleSlug:  "667",
 			Title:      "Test task from client",
 			Content:    "Test content from client",
 			Hints:      []string{"one hint", "second hint"},
@@ -376,7 +376,7 @@ func TestGetTodayTaskFromAllPossibleSourcesFromStorage(t *testing.T) {
 		DateID: todayDateID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 202,
-			ItemID:     667,
+			TitleSlug:  "667",
 			Title:      "Test task from client",
 			Content:    "Test content from client",
 			Hints:      []string{"one hint", "second hint"},
@@ -506,7 +506,7 @@ func TestGetTaskAction(t *testing.T) {
 		DateID: todayTaskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -629,7 +629,7 @@ func TestProcessRequestTaskMessage(t *testing.T) {
 		DateID: todayTaskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -640,7 +640,7 @@ func TestProcessRequestTaskMessage(t *testing.T) {
 	assert.Nil(t, err, "Unexpected json.Marshal error")
 	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
 	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
-	expectedResponse := fmt.Sprintf("{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/explore/item/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}", todayTaskID, todayTaskID, todayTaskID)
+	expectedResponse := fmt.Sprintf("{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"\\u003cstrong\\u003eTest title\\u003c/strong\\u003e\\n\\nTest content\",\"reply_markup\":\"{\\\"inline_keyboard\\\":[[{\\\"text\\\":\\\"See task on LeetCode website\\\",\\\"url\\\":\\\"https://leetcode.com/problems/6534\\\"}],[{\\\"text\\\":\\\"Hint 1\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":0}\\\"},{\\\"text\\\":\\\"Hint 2\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":0,\\\\\\\"hint\\\\\\\":1}\\\"}],[{\\\"text\\\":\\\"Hint: Get the difficulty of the task\\\",\\\"callback_data\\\":\\\"{\\\\\\\"dateID\\\\\\\":\\\\\\\"%d\\\\\\\",\\\\\\\"callback_type\\\\\\\":1,\\\\\\\"hint\\\\\\\":0}\\\"}]]}\"}", todayTaskID, todayTaskID, todayTaskID)
 	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
 }
 
@@ -674,7 +674,7 @@ func TestProcessRequestTaskHint(t *testing.T) {
 		DateID: todayTaskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -701,7 +701,7 @@ func TestProcessRequestTaskHintMoreThenExists(t *testing.T) {
 		DateID: taskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -762,7 +762,7 @@ func TestProcessRequestTaskDifficulty(t *testing.T) {
 		DateID: todayTaskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
@@ -798,7 +798,7 @@ func TestProcessRequestBrokenData(t *testing.T) {
 		DateID: todayTaskID,
 		LeetCodeTask: leetcodeclient.LeetCodeTask{
 			QuestionID: 1445,
-			ItemID:     6534,
+			TitleSlug:  "6534",
 			Title:      "Test title",
 			Content:    "Test content",
 			Hints:      []string{"first hint", "Second Hint"},
