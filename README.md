@@ -13,10 +13,10 @@ Expect following tables structure:
 CREATE TABLE `dailyQuestion`
 (
     `id` Uint64,
+    `content` String,
     `difficulty` Uint8,
     `hints` String,
     `questionId` Uint64,
-    `text` String,
     `title` String,
     `titleSlug` String,
     PRIMARY KEY (`id`)

@@ -32,8 +32,6 @@ type sliceDateStringError struct {
 	err  error
 }
 
-var errWrongJSON = errors.New("unexpected end of JSON input")
-
 func TestLeetcodeDateUnmarshal(t *testing.T) {
 	testDate := LeetcodeDate{}
 	err := testDate.UnmarshalJSON([]byte(""))
@@ -99,7 +97,7 @@ func TestGetMonthlyQuestionsSlugs(t *testing.T) {
 		}{TitleSlug: "test-title2"}}, {Date: LeetcodeDate(time.Date(1995, time.August, 3, 0, 0, 0, 0, loc)), Question: struct {
 			TitleSlug string "json:\"titleSlug\""
 		}{TitleSlug: "test-title3"}}}, nil},
-		{time.Date(1986, time.May, 26, 01, 23, 47, 0, loc), []challengeDesc(nil), errWrongJSON},
+		{time.Date(1986, time.May, 26, 01, 23, 47, 0, loc), []challengeDesc(nil), tests.ErrWrongJSON},
 	}
 	for _, testCase := range testCases {
 		res, err := client.getMonthlyQuestionsSlugs(context.Background(), testCase.date)
@@ -206,7 +204,7 @@ func TestGetQuestionDetailsByTitleSlug(t *testing.T) {
 			Content:    "<p>My very test content <code>with code</code></p>\n\n",
 			Hints:      []string{"First hint", "Second hint"},
 		}, nil},
-		{"test-title1", LeetCodeTask{}, errWrongJSON},
+		{"test-title1", LeetCodeTask{}, tests.ErrWrongJSON},
 	}
 	for _, testCase := range testCases {
 		task, err := client.GetQuestionDetailsByTitleSlug(context.Background(), testCase.str)
@@ -281,7 +279,7 @@ func TestGetDailyTask(t *testing.T) {
 			Content:    "<p>My very test content <code>with code</code></p>\n\n",
 			Hints:      []string{"First hint", "Second hint"},
 		}, nil},
-		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{}, errWrongJSON},
+		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{}, tests.ErrWrongJSON},
 	}
 	for _, testCase := range testCases {
 		task, err := client.GetDailyTask(context.Background(), testCase.date)

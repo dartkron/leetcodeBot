@@ -17,7 +17,7 @@ const (
 	getTaskQuery = `
 	DECLARE $dateId AS Uint64;
 
-	SELECT title, text, questionId, titleSlug, hints, difficulty
+	SELECT title, content, questionId, titleSlug, hints, difficulty
 	FROM dailyQuestion
 	WHERE id = $dateId;
 	`
@@ -30,15 +30,15 @@ const (
 	DECLARE $hints AS String;
 	DECLARE $difficulty AS Uint8;
 
-	REPLACE INTO dailyQuestion (id, questionId, titleSlug, title, text, hints, difficulty)
+	REPLACE INTO dailyQuestion (id, questionId, titleSlug, title, content, hints, difficulty)
 	VALUES ($dateId, $questionId, $titleSlug, $title, $content, $hints, $difficulty);
 	`
 	getUserQuery = `
-	DECLARE $userId AS Uint64;
+	DECLARE $id AS Uint64;
 
 	SELECT chat_id, firstName, lastName, username, subscribed
 	FROM users
-	WHERE id = $userId;
+	WHERE id = $id;
 	`
 	getSubscribedUsersQuery = `
 	SELECT id, chat_id, firstName, lastName, username
@@ -57,21 +57,30 @@ const (
 	VALUES ($id, $chat_id, $firstname, $lastname, $username, $subscribed);
 	`
 	subscribeUserQuery = `
-	DECLARE $userId AS Uint64;
+	DECLARE $id AS Uint64;
 
     UPDATE users set subscribed = true
-    WHERE id=$userId;
+    WHERE id=$id;
 	`
 	unsubscribeUserQuery = `
-	DECLARE $userId AS Uint64;
+	DECLARE $id AS Uint64;
 
     UPDATE users set subscribed = false
-    WHERE id=$userId;
+    WHERE id=$id;
 	`
 )
 
+// YDBResult IMO is what supposed to be a part of ydb package. Interface to allow YDB response mocks
+type YDBResult interface {
+	RowCount() int
+	NextResultSet(context.Context, ...string) bool
+	NextRow() bool
+	Err() error
+	Scan(values ...interface{}) error
+}
+
 type queryExecuter interface {
-	ProcessQuery(context.Context, string, *table.QueryParameters) (*table.Result, error)
+	ProcessQuery(context.Context, string, *table.QueryParameters) (YDBResult, error)
 }
 
 type ydbQueryExecuter struct {
@@ -120,17 +129,17 @@ func (y *ydbQueryExecuter) getConnection() (*connect.Connection, error) {
 			),
 		)
 	})
-	if y.connection == nil {
-		return nil, ErrNoActiveTasksStorage
-	}
 	if err != nil {
 		return nil, err
+	}
+	if y.connection == nil {
+		return nil, ErrNoActiveTasksStorage
 	}
 
 	return y.connection, nil
 }
 
-func (y *ydbQueryExecuter) ProcessQuery(ctx context.Context, query string, queryParams *table.QueryParameters) (*table.Result, error) {
+func (y *ydbQueryExecuter) ProcessQuery(ctx context.Context, query string, queryParams *table.QueryParameters) (YDBResult, error) {
 	finishChan := make(chan error)
 	var connection *connect.Connection
 	var err error
@@ -150,7 +159,7 @@ func (y *ydbQueryExecuter) ProcessQuery(ctx context.Context, query string, query
 		return nil, err
 	}
 	var res *table.Result
-	return res, y.ExecQueryFunc(
+	err = y.ExecQueryFunc(
 		ctx,
 		connection.Table().Pool(),
 		table.OperationFunc(func(ctx context.Context, s *table.Session) (err error) {
@@ -158,6 +167,7 @@ func (y *ydbQueryExecuter) ProcessQuery(ctx context.Context, query string, query
 			return err
 		}),
 	)
+	return res, err
 }
 
 func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeetCodeTask, error) {
@@ -174,7 +184,7 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 
 	var (
 		title      *string
-		text       *string
+		content    *string
 		questionID *uint64
 		titleSlug  *string
 		hints      *string
@@ -183,11 +193,11 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
 
-	for res.NextResultSet(ctx, "title", "text", "questionId", "titleSlug", "hints", "difficulty") {
+	for res.NextResultSet(ctx, "title", "content", "questionId", "titleSlug", "hints", "difficulty") {
 		for res.NextRow() {
 			err = res.Scan(
 				&title,
-				&text,
+				&content,
 				&questionID,
 				&titleSlug,
 				&hints,
@@ -196,8 +206,9 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 			if err != nil {
 				break
 			}
+			fmt.Println("Before asignment value is", title)
 			returnValue.Title = *title
-			returnValue.Content = *text
+			returnValue.Content = *content
 			returnValue.QuestionID = *questionID
 			returnValue.TitleSlug = *titleSlug
 			returnValue.SetDifficultyFromNum(*difficulty)
@@ -234,7 +245,7 @@ func (y *ydbStorage) saveTask(ctx context.Context, task common.BotLeetCodeTask) 
 func (y *ydbStorage) getUser(ctx context.Context, userID uint64) (common.User, error) {
 	res, err := y.ydbExecuter.ProcessQuery(ctx, getUserQuery,
 		table.NewQueryParameters(
-			table.ValueParam("$userId", ydb.Uint64Value(userID)),
+			table.ValueParam("$id", ydb.Uint64Value(userID)),
 		),
 	)
 	if err != nil {
@@ -259,9 +270,9 @@ func (y *ydbStorage) getUser(ctx context.Context, userID uint64) (common.User, e
 		for res.NextRow() {
 			err := res.Scan(
 				&chatID,
-				&username,
 				&firstName,
 				&lastName,
+				&username,
 				&subscribed,
 			)
 			if err != nil {
@@ -284,7 +295,7 @@ func (y *ydbStorage) getSubscribedUsers(ctx context.Context) ([]common.User, err
 	}
 
 	var (
-		userID    *uint64
+		id        *uint64
 		chatID    *uint64
 		username  *string
 		firstName *string
@@ -295,17 +306,17 @@ func (y *ydbStorage) getSubscribedUsers(ctx context.Context) ([]common.User, err
 	for res.NextResultSet(ctx, "id", "chat_id", "firstName", "lastName", "username") {
 		for res.NextRow() {
 			err := res.Scan(
-				&userID,
+				&id,
 				&chatID,
-				&username,
 				&firstName,
 				&lastName,
+				&username,
 			)
 			if err != nil {
 				return []common.User{}, err
 			}
 			returnValue = append(returnValue, common.User{
-				ID:         *userID,
+				ID:         *id,
 				ChatID:     *chatID,
 				Username:   *username,
 				FirstName:  *firstName,
@@ -333,7 +344,7 @@ func (y *ydbStorage) saveUser(ctx context.Context, user common.User) error {
 
 func (y *ydbStorage) subscribeUser(ctx context.Context, userID uint64) error {
 	_, err := y.ydbExecuter.ProcessQuery(ctx, subscribeUserQuery, table.NewQueryParameters(
-		table.ValueParam("$userId", ydb.Uint64Value(userID)),
+		table.ValueParam("$id", ydb.Uint64Value(userID)),
 	),
 	)
 	return err
@@ -341,7 +352,7 @@ func (y *ydbStorage) subscribeUser(ctx context.Context, userID uint64) error {
 
 func (y *ydbStorage) unsubscribeUser(ctx context.Context, userID uint64) error {
 	_, err := y.ydbExecuter.ProcessQuery(ctx, unsubscribeUserQuery, table.NewQueryParameters(
-		table.ValueParam("$userId", ydb.Uint64Value(userID)),
+		table.ValueParam("$id", ydb.Uint64Value(userID)),
 	),
 	)
 	return err
