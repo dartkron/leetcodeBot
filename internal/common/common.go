@@ -168,8 +168,7 @@ func (task *BotLeetCodeTask) SetDifficultyFromNum(difficuty uint8) {
 
 // GetDateInRightTimeZone returns time in corrent time zone for Leetcode
 func GetDateInRightTimeZone() time.Time {
-	loc, _ := time.LoadLocation("US/Pacific")
-	return time.Now().In(loc)
+	return time.Now().UTC()
 }
 
 // GetDateIDForNow dateID for current time in correct time zone for Leetcode

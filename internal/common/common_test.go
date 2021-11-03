@@ -167,7 +167,7 @@ func TestSetDifficultyFromNum(t *testing.T) {
 }
 
 func TestDateIDFunctions(t *testing.T) {
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("UTC")
 	now := time.Now().In(loc)
 	assert.Equal(t, GetDateID(now), GetDateIDForNow(), "GetDateIDForNow now equal to what it supposed to be")
 }
