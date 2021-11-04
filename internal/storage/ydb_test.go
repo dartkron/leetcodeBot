@@ -423,7 +423,7 @@ func TestSubscribeUser(t *testing.T) {
 		},
 		nil,
 	)
-	err := storage.subscribeUser(context.Background(), 123)
+	err := storage.subscribeUser(context.Background(), 123, 7)
 	assert.Nil(t, err, "Unexpected error")
 }
 
@@ -444,7 +444,7 @@ func TestSubscribeUserError(t *testing.T) {
 		},
 		tests.ErrBypassTest,
 	)
-	err := storage.subscribeUser(context.Background(), 123)
+	err := storage.subscribeUser(context.Background(), 123, 7)
 	assert.Equal(t, tests.ErrBypassTest, err, "Unexpected error")
 }
 
@@ -497,36 +497,40 @@ func TestGetSubscribedUsersDB(t *testing.T) {
 	storage.ydbExecuter = mockExecuter
 	usersToCheck := []common.User{
 		{
-			ID:         123,
-			ChatID:     123,
-			Username:   "test1",
-			FirstName:  "ftest1",
-			LastName:   "ltest1",
-			Subscribed: true,
+			ID:          123,
+			ChatID:      123,
+			Username:    "test1",
+			FirstName:   "ftest1",
+			LastName:    "ltest1",
+			Subscribed:  true,
+			SendingHour: 7,
 		},
 		{
-			ID:         122,
-			ChatID:     122,
-			Username:   "test2",
-			FirstName:  "ftest2",
-			LastName:   "ltest2",
-			Subscribed: true,
+			ID:          122,
+			ChatID:      122,
+			Username:    "test2",
+			FirstName:   "ftest2",
+			LastName:    "ltest2",
+			Subscribed:  true,
+			SendingHour: 7,
 		},
 		{
-			ID:         124,
-			ChatID:     124,
-			Username:   "test3",
-			FirstName:  "ftest3",
-			LastName:   "ltest3",
-			Subscribed: true,
+			ID:          124,
+			ChatID:      124,
+			Username:    "test3",
+			FirstName:   "ftest3",
+			LastName:    "ltest3",
+			Subscribed:  true,
+			SendingHour: 7,
 		},
 		{
-			ID:         125,
-			ChatID:     125,
-			Username:   "test4",
-			FirstName:  "ftest4",
-			LastName:   "ltest4",
-			Subscribed: true,
+			ID:          125,
+			ChatID:      125,
+			Username:    "test4",
+			FirstName:   "ftest4",
+			LastName:    "ltest4",
+			Subscribed:  true,
+			SendingHour: 7,
 		},
 	}
 	rows := []interface{}{}
@@ -545,7 +549,7 @@ func TestGetSubscribedUsersDB(t *testing.T) {
 		nil,
 	)
 
-	users, err := storage.getSubscribedUsers(context.Background())
+	users, err := storage.getSubscribedUsers(context.Background(), 7)
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, usersToCheck, users, "Unexpected users returned")
 }
@@ -567,7 +571,7 @@ func TestGetSubscribedUsersDBError(t *testing.T) {
 		tests.ErrBypassTest,
 	)
 
-	users, err := storage.getSubscribedUsers(context.Background())
+	users, err := storage.getSubscribedUsers(context.Background(), 7)
 	assert.Equal(t, tests.ErrBypassTest, err, "Unexpected error")
 	assert.Equal(t, []common.User{}, users, "Unexpected users returned")
 }
@@ -590,7 +594,7 @@ func TestGetSubscribedUsersScanError(t *testing.T) {
 		nil,
 	)
 
-	users, err := storage.getSubscribedUsers(context.Background())
+	users, err := storage.getSubscribedUsers(context.Background(), 7)
 	assert.Equal(t, tests.ErrBypassTest, err, "Unexpected error")
 	assert.Equal(t, []common.User{}, users, "Unexpected users returned")
 }
@@ -601,12 +605,13 @@ func TestGetUser(t *testing.T) {
 	mockExecuter.t = t
 	storage.ydbExecuter = mockExecuter
 	userToCheck := common.User{
-		ID:         123,
-		ChatID:     123,
-		Username:   "test1",
-		FirstName:  "ftest1",
-		LastName:   "ltest1",
-		Subscribed: true,
+		ID:          123,
+		ChatID:      123,
+		Username:    "test1",
+		FirstName:   "ftest1",
+		LastName:    "ltest1",
+		Subscribed:  true,
+		SendingHour: 10,
 	}
 	rows := []interface{}{interface{}(userToCheck)}
 	mockExecuter.On(

@@ -36,14 +36,15 @@ const (
 	getUserQuery = `
 	DECLARE $id AS Uint64;
 
-	SELECT chat_id, firstName, lastName, username, subscribed
+	SELECT chat_id, firstName, lastName, username, subscribed, sendingHour
 	FROM users
 	WHERE id = $id;
 	`
 	getSubscribedUsersQuery = `
+	DECLARE $sendingHour AS Uint8;
 	SELECT id, chat_id, firstName, lastName, username
 	FROM users
-	WHERE subscribed = true;
+	WHERE subscribed = true and sendingHour = $sendingHour;
 	`
 	saveUserQuery = `
 	DECLARE $id AS Uint64;
@@ -52,14 +53,16 @@ const (
 	DECLARE $lastname AS String;
 	DECLARE $username AS String;
 	DECLARE $subscribed AS Bool;
+	DECLARE $sendingHour AS Uint8;
 
-	REPLACE INTO users (id, chat_id, firstName, lastName, username, subscribed)
-	VALUES ($id, $chat_id, $firstname, $lastname, $username, $subscribed);
+	REPLACE INTO users (id, chat_id, firstName, lastName, username, subscribed, sendingHour)
+	VALUES ($id, $chat_id, $firstname, $lastname, $username, $subscribed, $sendingHour);
 	`
 	subscribeUserQuery = `
 	DECLARE $id AS Uint64;
+	DECLARE $sendingHour AS Uint8;
 
-    UPDATE users set subscribed = true
+    UPDATE users set subscribed = true, sendingHour = $sendingHour
     WHERE id=$id;
 	`
 	unsubscribeUserQuery = `
@@ -257,16 +260,17 @@ func (y *ydbStorage) getUser(ctx context.Context, userID uint64) (common.User, e
 	}
 
 	var (
-		chatID     *uint64
-		username   *string
-		firstName  *string
-		lastName   *string
-		subscribed *bool
+		chatID      *uint64
+		username    *string
+		firstName   *string
+		lastName    *string
+		subscribed  *bool
+		sendingHour *uint8
 	)
 
 	returnValue := common.User{ID: userID}
 
-	for res.NextResultSet(ctx, "chat_id", "firstName", "lastName", "username", "subscribed") {
+	for res.NextResultSet(ctx, "chat_id", "firstName", "lastName", "username", "subscribed", "sendingHour") {
 		for res.NextRow() {
 			err := res.Scan(
 				&chatID,
@@ -274,6 +278,7 @@ func (y *ydbStorage) getUser(ctx context.Context, userID uint64) (common.User, e
 				&lastName,
 				&username,
 				&subscribed,
+				&sendingHour,
 			)
 			if err != nil {
 				return common.User{}, err
@@ -283,13 +288,14 @@ func (y *ydbStorage) getUser(ctx context.Context, userID uint64) (common.User, e
 			returnValue.FirstName = *firstName
 			returnValue.LastName = *lastName
 			returnValue.Subscribed = *subscribed
+			returnValue.SendingHour = *sendingHour
 		}
 	}
 	return returnValue, res.Err()
 }
 
-func (y *ydbStorage) getSubscribedUsers(ctx context.Context) ([]common.User, error) {
-	res, err := y.ydbExecuter.ProcessQuery(ctx, getSubscribedUsersQuery, table.NewQueryParameters())
+func (y *ydbStorage) getSubscribedUsers(ctx context.Context, sendingHour uint8) ([]common.User, error) {
+	res, err := y.ydbExecuter.ProcessQuery(ctx, getSubscribedUsersQuery, table.NewQueryParameters(table.ValueParam("$sendingHour", ydb.Uint8Value(sendingHour))))
 	if err != nil {
 		return []common.User{}, err
 	}
@@ -316,12 +322,13 @@ func (y *ydbStorage) getSubscribedUsers(ctx context.Context) ([]common.User, err
 				return []common.User{}, err
 			}
 			returnValue = append(returnValue, common.User{
-				ID:         *id,
-				ChatID:     *chatID,
-				Username:   *username,
-				FirstName:  *firstName,
-				LastName:   *lastName,
-				Subscribed: true,
+				ID:          *id,
+				ChatID:      *chatID,
+				Username:    *username,
+				FirstName:   *firstName,
+				LastName:    *lastName,
+				Subscribed:  true,
+				SendingHour: sendingHour,
 			})
 
 		}
@@ -337,14 +344,16 @@ func (y *ydbStorage) saveUser(ctx context.Context, user common.User) error {
 		table.ValueParam("$lastname", ydb.StringValue([]byte(user.LastName))),
 		table.ValueParam("$username", ydb.StringValue([]byte(user.Username))),
 		table.ValueParam("$subscribed", ydb.BoolValue(user.Subscribed)),
+		table.ValueParam("$sendingHour", ydb.Uint8Value(user.SendingHour)),
 	),
 	)
 	return err
 }
 
-func (y *ydbStorage) subscribeUser(ctx context.Context, userID uint64) error {
+func (y *ydbStorage) subscribeUser(ctx context.Context, userID uint64, sendingHour uint8) error {
 	_, err := y.ydbExecuter.ProcessQuery(ctx, subscribeUserQuery, table.NewQueryParameters(
 		table.ValueParam("$id", ydb.Uint64Value(userID)),
+		table.ValueParam("$sendingHour", ydb.Uint8Value(sendingHour)),
 	),
 	)
 	return err

@@ -52,12 +52,13 @@ type BotLeetCodeTask struct {
 
 // User struct for the whole application
 type User struct {
-	ID         uint64
-	ChatID     uint64
-	Username   string
-	FirstName  string
-	LastName   string
-	Subscribed bool
+	ID          uint64
+	ChatID      uint64
+	Username    string
+	FirstName   string
+	LastName    string
+	Subscribed  bool
+	SendingHour uint8
 }
 
 // GetTaskText returns task text representation to couple login into class(struct, of course struct)

@@ -80,8 +80,8 @@ func (controller *MockStorageController) UnsubscribeUser(ctx context.Context, us
 	return nil
 }
 
-func (controller *MockStorageController) GetSubscribedUsers(ctx context.Context) ([]common.User, error) {
-	controller.callsJournal = append(controller.callsJournal, "GetSubscribedUsers")
+func (controller *MockStorageController) GetSubscribedUsers(ctx context.Context, sendingHour uint8) ([]common.User, error) {
+	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("GetSubscribedUsers %d", sendingHour))
 	if controller.getSubscribedUsersMustFail {
 		return []common.User{}, tests.ErrBypassTest
 	}

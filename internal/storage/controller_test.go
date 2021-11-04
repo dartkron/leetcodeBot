@@ -64,8 +64,8 @@ func (k *MockUsersStorekeeper) saveUser(ctx context.Context, user common.User) e
 	return nil
 }
 
-func (k *MockUsersStorekeeper) subscribeUser(ctx context.Context, userID uint64) error {
-	k.callsJournal = append(k.callsJournal, fmt.Sprintf("subscribeUser %d", userID))
+func (k *MockUsersStorekeeper) subscribeUser(ctx context.Context, userID uint64, sendingHour uint8) error {
+	k.callsJournal = append(k.callsJournal, fmt.Sprintf("subscribeUser %d, sendingHour %d", userID, sendingHour))
 	if userID == k.IDToFail {
 		return tests.ErrBypassTest
 	}
@@ -90,8 +90,8 @@ func (k *MockUsersStorekeeper) unsubscribeUser(ctx context.Context, userID uint6
 	return nil
 }
 
-func (k *MockUsersStorekeeper) getSubscribedUsers(ctx context.Context) ([]common.User, error) {
-	k.callsJournal = append(k.callsJournal, "getSubscribedUsers")
+func (k *MockUsersStorekeeper) getSubscribedUsers(ctx context.Context, sendingHour uint8) ([]common.User, error) {
+	k.callsJournal = append(k.callsJournal, fmt.Sprintf("getSubscribedUsers %d", sendingHour))
 	if k.getSubscribedUsersMustFail {
 		return []common.User{}, tests.ErrBypassTest
 	}
@@ -118,7 +118,7 @@ func TestNotConfiguredStorage(t *testing.T) {
 	storageController.usersDB = nil
 	assert.Equal(t, storageController.UnsubscribeUser(context.Background(), 3435), ErrNoActiveUsersStorage, "UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
 	assert.Equal(t, storageController.SubscribeUser(context.Background(), common.User{}), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	_, err := storageController.GetSubscribedUsers(context.Background())
+	_, err := storageController.GetSubscribedUsers(context.Background(), 7)
 	assert.Equal(t, err, ErrNoActiveUsersStorage, "GetSubscribedUsers should return ErrNoActiveUsersStorage when users storage isn't set")
 	assert.Nil(t, storageController.SaveTask(context.Background(), common.BotLeetCodeTask{}), "Unexpected error from SaveTask with unconfigured storage")
 	_, err = storageController.GetTask(context.Background(), 12312)
@@ -370,7 +370,7 @@ func TestGetSubscribedUsers(t *testing.T) {
 				user.Subscribed = false
 			}
 		}
-		list, err := storageController.GetSubscribedUsers(context.Background())
+		list, err := storageController.GetSubscribedUsers(context.Background(), 7)
 		assert.Nil(t, err, "Unexpected GetSubscribedUsers error")
 		sort.Slice(list, func(i, j int) bool {
 			return list[i].ID < list[j].ID
@@ -379,7 +379,7 @@ func TestGetSubscribedUsers(t *testing.T) {
 			return awaitedList[i].ID < awaitedList[j].ID
 		})
 		assert.Equal(t, list, awaitedList, "Unxpected users list from GetSubscribedUsers")
-		assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers"}, "Unexpected users store call list")
+		assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers 7"}, "Unexpected users store call list")
 	}
 }
 
@@ -389,10 +389,10 @@ func TestGetSubscribedUsersWithError(t *testing.T) {
 		usersDB: usersStore,
 	}
 	usersStore.getSubscribedUsersMustFail = true
-	list, err := storageController.GetSubscribedUsers(context.Background())
+	list, err := storageController.GetSubscribedUsers(context.Background(), 7)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected GetSubscribedUsers error")
 	assert.Equal(t, list, []common.User{}, "Empty list should be returned from GetSubscribedUsers on error")
-	assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers"}, "Unexpected users store call list")
+	assert.Equal(t, usersStore.callsJournal, []string{"getSubscribedUsers 7"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserNew(t *testing.T) {
@@ -425,7 +425,7 @@ func TestSubscribeUserOld(t *testing.T) {
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = true
 	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
-	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", "subscribeUser 1124"}, "Unexpected users store call list")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", "subscribeUser 1124, sendingHour 7"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserAlreadySubscribed(t *testing.T) {

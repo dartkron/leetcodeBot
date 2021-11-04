@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/dartkron/leetcodeBot/v2/internal/common"
 	"github.com/dartkron/leetcodeBot/v2/internal/storage"
@@ -267,7 +268,8 @@ func (app *Application) SendMessage(ctx context.Context, requestBody []byte) err
 
 // SendDailyTaskToSubscribedUsers get subscribed users and send notifications with daily task to them
 func (app *Application) SendDailyTaskToSubscribedUsers(ctx context.Context) error {
-	usersSlice, err := app.storageController.GetSubscribedUsers(ctx)
+	now := time.Now().UTC()
+	usersSlice, err := app.storageController.GetSubscribedUsers(ctx, uint8(now.Hour()))
 	if err != nil {
 		return err
 	}

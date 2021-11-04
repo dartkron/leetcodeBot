@@ -36,9 +36,9 @@ type tasksStorekeeper interface {
 type usersStorekeeper interface {
 	getUser(context.Context, uint64) (common.User, error)
 	saveUser(context.Context, common.User) error
-	subscribeUser(context.Context, uint64) error
+	subscribeUser(context.Context, uint64, uint8) error
 	unsubscribeUser(context.Context, uint64) error
-	getSubscribedUsers(context.Context) ([]common.User, error)
+	getSubscribedUsers(context.Context, uint8) ([]common.User, error)
 }
 
 // Controller should hide logic of storage layers inside
@@ -47,7 +47,7 @@ type Controller interface {
 	SaveTask(context.Context, common.BotLeetCodeTask) error
 	SubscribeUser(context.Context, common.User) error
 	UnsubscribeUser(context.Context, uint64) error
-	GetSubscribedUsers(context.Context) ([]common.User, error)
+	GetSubscribedUsers(context.Context, uint8) ([]common.User, error)
 }
 
 // YDBandFileCacheController is an instance of Controller which store users in database and store tasks into cache AND database
@@ -136,7 +136,7 @@ func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user comm
 	if storedUser.Subscribed {
 		return ErrUserAlreadySubscribed
 	}
-	return s.usersDB.subscribeUser(ctx, user.ID)
+	return s.usersDB.subscribeUser(ctx, user.ID, 7)
 }
 
 // UnsubscribeUser unsubscribing user with userID.
@@ -159,11 +159,11 @@ func (s *YDBandFileCacheController) UnsubscribeUser(ctx context.Context, userID 
 }
 
 // GetSubscribedUsers necessary when we need to send notification to all subscribed users
-func (s *YDBandFileCacheController) GetSubscribedUsers(ctx context.Context) ([]common.User, error) {
+func (s *YDBandFileCacheController) GetSubscribedUsers(ctx context.Context, sendingHour uint8) ([]common.User, error) {
 	if s.usersDB == nil {
 		return []common.User{}, ErrNoActiveUsersStorage
 	}
-	return s.usersDB.getSubscribedUsers(ctx)
+	return s.usersDB.getSubscribedUsers(ctx, sendingHour)
 }
 
 // NewYDBandFileCacheController constructs default storage controller
