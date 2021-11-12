@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
 	"github.com/yandex-cloud/ydb-go-sdk/v2"
 	"github.com/yandex-cloud/ydb-go-sdk/v2/connect"
 	"github.com/yandex-cloud/ydb-go-sdk/v2/table"
@@ -209,7 +209,6 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 			if err != nil {
 				break
 			}
-			fmt.Println("Before asignment value is", title)
 			returnValue.Title = *title
 			returnValue.Content = *content
 			returnValue.QuestionID = *questionID

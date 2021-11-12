@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
-	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient"
 	"github.com/stretchr/testify/mock"
 )
 

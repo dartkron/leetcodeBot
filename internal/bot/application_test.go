@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
-	"github.com/dartkron/leetcodeBot/v2/internal/storage"
-	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
-	lcclientmocks "github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient/mocks"
-	"github.com/dartkron/leetcodeBot/v2/tests"
-	"github.com/dartkron/leetcodeBot/v2/tests/mocks"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/internal/storage"
+	"github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient"
+	lcclientmocks "github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient/mocks"
+	"github.com/dartkron/leetcodeBot/v3/tests"
+	"github.com/dartkron/leetcodeBot/v3/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,18 +48,21 @@ func (controller *MockStorageController) SaveTask(ctx context.Context, task comm
 	return nil
 }
 
-func (controller *MockStorageController) SubscribeUser(ctx context.Context, user common.User) error {
-	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("SubscribeUser %d", user.ID))
+func (controller *MockStorageController) SubscribeUser(ctx context.Context, user common.User, sendingHour uint8) error {
+	controller.callsJournal = append(controller.callsJournal, fmt.Sprintf("SubscribeUser %d %d", user.ID, sendingHour))
 	if user.ID == controller.failedUserID {
 		return tests.ErrBypassTest
 	}
-	if user, ok := controller.users[user.ID]; ok {
-		if user.Subscribed {
+	if storedUser, ok := controller.users[user.ID]; ok {
+		if storedUser.Subscribed {
 			return storage.ErrUserAlreadySubscribed
 		}
+		controller.users[user.ID].Subscribed = true
+		controller.users[user.ID].SendingHour = sendingHour
 	} else {
 		user.Subscribed = true
-		controller.users[user.ID] = user
+		user.SendingHour = sendingHour
+		controller.users[user.ID] = &user
 	}
 	return nil
 }
@@ -120,36 +123,40 @@ func getTestApp() (*mocks.MockHTTPTRansport, *MockStorageController, *lcclientmo
 		tasks: map[uint64]*common.BotLeetCodeTask{},
 		users: map[uint64]*common.User{
 			1124: {
-				ID:         1124,
-				ChatID:     1124,
-				Username:   "testuser1124",
-				FirstName:  "1124firstname",
-				LastName:   "1124lastname",
-				Subscribed: false,
+				ID:          1124,
+				ChatID:      1124,
+				Username:    "testuser1124",
+				FirstName:   "1124firstname",
+				LastName:    "1124lastname",
+				Subscribed:  false,
+				SendingHour: 0,
 			},
 			1126: {
-				ID:         1126,
-				ChatID:     1126,
-				Username:   "testuser1126",
-				FirstName:  "1126firstname",
-				LastName:   "1126lastname",
-				Subscribed: true,
+				ID:          1126,
+				ChatID:      1126,
+				Username:    "testuser1126",
+				FirstName:   "1126firstname",
+				LastName:    "1126lastname",
+				Subscribed:  true,
+				SendingHour: 0,
 			},
 			1128: {
-				ID:         1128,
-				ChatID:     1128,
-				Username:   "testuser1128",
-				FirstName:  "1128firstname",
-				LastName:   "1128lastname",
-				Subscribed: false,
+				ID:          1128,
+				ChatID:      1128,
+				Username:    "testuser1128",
+				FirstName:   "1128firstname",
+				LastName:    "1128lastname",
+				Subscribed:  false,
+				SendingHour: 0,
 			},
 			1120: {
-				ID:         1120,
-				ChatID:     1120,
-				Username:   "testuser1120",
-				FirstName:  "1120firstname",
-				LastName:   "1120lastname",
-				Subscribed: true,
+				ID:          1120,
+				ChatID:      1120,
+				Username:    "testuser1120",
+				FirstName:   "1120firstname",
+				LastName:    "1120lastname",
+				Subscribed:  true,
+				SendingHour: 0,
 			},
 		},
 	}
@@ -400,7 +407,7 @@ func TestNewApplication(t *testing.T) {
 
 func TestSubscribeAction(t *testing.T) {
 	_, storageController, _, app := getTestApp()
-	userBeforeRequest := storageController.users[1124]
+	userBeforeRequest := *storageController.users[1124]
 	assert.False(t, userBeforeRequest.Subscribed, "Before request user shouldn't be scubscribed")
 	request := TelegramRequest{}
 	request.Message.From.ID = 1124
@@ -409,16 +416,17 @@ func TestSubscribeAction(t *testing.T) {
 	request.Message.From.FirstName = "1125firstname"
 	request.Message.From.LastName = "1125lastname"
 	response := TelegramResponse{}
-	err := app.subscribeAction(context.Background(), &request, &response)
+	err := app.subscribeAction(context.Background(), &request, &response, userBeforeRequest.SendingHour+2)
 	assert.Nil(t, err, "Unexpected subscribeAction error")
 	userBeforeRequest.Subscribed = true
-	assert.Equal(t, userBeforeRequest, storageController.users[1124], "Unexpected changes in stored user after subscribe action")
+	userBeforeRequest.SendingHour += 2
+	assert.Equal(t, userBeforeRequest, *storageController.users[1124], "Unexpected changes in stored user after subscribe action")
 	assert.Equal(t, fmt.Sprintf(subcribedMessage, request.Message.From.FirstName), response.Text, "Unexpected response text")
 }
 
 func TestSubscribeActionAlreadySubscribed(t *testing.T) {
 	_, storageController, _, app := getTestApp()
-	userBeforeRequest := storageController.users[1126]
+	userBeforeRequest := *storageController.users[1126]
 	assert.True(t, userBeforeRequest.Subscribed, "Before request user should be scubscribed")
 	request := TelegramRequest{}
 	request.Message.From.ID = 1126
@@ -427,9 +435,9 @@ func TestSubscribeActionAlreadySubscribed(t *testing.T) {
 	request.Message.From.FirstName = "1125firstname"
 	request.Message.From.LastName = "1125lastname"
 	response := TelegramResponse{}
-	err := app.subscribeAction(context.Background(), &request, &response)
+	err := app.subscribeAction(context.Background(), &request, &response, 7)
 	assert.Nil(t, err, "Unexpected subscribeAction error")
-	assert.Equal(t, userBeforeRequest, storageController.users[1126], "Unexpected changes in stored user after subscribe action")
+	assert.Equal(t, userBeforeRequest, *storageController.users[1126], "Unexpected changes in stored user after subscribe action")
 	assert.Equal(t, fmt.Sprintf(alreadySubscribedMessage, request.Message.From.FirstName), response.Text, "Unexpected response text")
 }
 
@@ -443,7 +451,7 @@ func TestSubscribeActionWithError(t *testing.T) {
 	request.Message.From.FirstName = "1125firstname"
 	request.Message.From.LastName = "1125lastname"
 	response := TelegramResponse{}
-	err := app.subscribeAction(context.Background(), &request, &response)
+	err := app.subscribeAction(context.Background(), &request, &response, 7)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected subscribeAction error")
 	assert.Empty(t, response.Text, "Response text should be empty on error")
 }
@@ -563,13 +571,13 @@ func TestProcessRequestSubscribe(t *testing.T) {
 	request.Message.From.ID = 1126
 	request.Message.Chat.ID = 1126
 	request.Message.From.FirstName = "TestUser"
-	request.Message.Text = subscribeCommand
+	request.Message.Text = subscribeCommandSlash + " 7"
 	requestbytes, err := json.Marshal(request)
 	assert.Nil(t, err, "Unexpected json.Marshal error")
 	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
 	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
-	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"TestUser, you have \\u003cstrong\\u003ealready subscribed\\u003c/strong\\u003e for daily updates, nothing to do.\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"Get actual daily task\\\"}],[{\\\"text\\\":\\\"Subscribe\\\"},{\\\"text\\\":\\\"Unsubscribe\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, use buttons below:\\\",\\\"resize_keyboard\\\":true}\"}"
-	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
+	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"You command \\\"/Subscribe 7\\\" isn't recognized =(\\nList of available commands:\\n/getDailyTask — get actual dailyTask\\n/Subscribe — start automatically sending of daily tasks\\n/Unsubscribe — stop automatically sending of daily tasks\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"Get actual daily task\\\"}],[{\\\"text\\\":\\\"Subscribe\\\"},{\\\"text\\\":\\\"Unsubscribe\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, use buttons below:\\\",\\\"resize_keyboard\\\":true}\"}"
+	assert.Equal(t, []byte(expectedResponse), responseBytes, "Unexprected response bytes")
 }
 
 func TestProcessRequestSubscribeError(t *testing.T) {
@@ -578,12 +586,12 @@ func TestProcessRequestSubscribeError(t *testing.T) {
 	request.Message.From.ID = 1126
 	request.Message.Chat.ID = 1126
 	request.Message.From.FirstName = "TestUser"
-	request.Message.Text = subscribeCommand
+	request.Message.Text = "7:00"
 	storageController.failedUserID = 1126
 	requestbytes, err := json.Marshal(request)
 	assert.Nil(t, err, "Unexpected json.Marshal error")
 	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
-	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected ProcessRequestBody text")
+	assert.Equal(t, tests.ErrBypassTest, err, "Unexpected ProcessRequestBody text")
 	assert.Empty(t, responseBytes, "Unexprected response bytes")
 }
 

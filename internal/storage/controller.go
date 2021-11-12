@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
 )
 
 // ErrNoSuchTask returns when storage works, but such task is not found in the storage and the cache
@@ -45,7 +45,7 @@ type usersStorekeeper interface {
 type Controller interface {
 	GetTask(context.Context, uint64) (common.BotLeetCodeTask, error)
 	SaveTask(context.Context, common.BotLeetCodeTask) error
-	SubscribeUser(context.Context, common.User) error
+	SubscribeUser(context.Context, common.User, uint8) error
 	UnsubscribeUser(context.Context, uint64) error
 	GetSubscribedUsers(context.Context, uint8) ([]common.User, error)
 }
@@ -121,7 +121,7 @@ func (s *YDBandFileCacheController) SaveTask(ctx context.Context, task common.Bo
 
 // SubscribeUser subscribe and create user in storage if necessary.
 // Returns ErrNoSuchUser ErrUserAlreadySubscribed if user were already subscribed
-func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user common.User) error {
+func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user common.User, sendingHour uint8) error {
 	if s.usersDB == nil {
 		return ErrNoActiveUsersStorage
 	}
@@ -136,7 +136,7 @@ func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user comm
 	if storedUser.Subscribed {
 		return ErrUserAlreadySubscribed
 	}
-	return s.usersDB.subscribeUser(ctx, user.ID, 7)
+	return s.usersDB.subscribeUser(ctx, user.ID, sendingHour)
 }
 
 // UnsubscribeUser unsubscribing user with userID.

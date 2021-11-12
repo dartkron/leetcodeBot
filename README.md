@@ -28,6 +28,7 @@ CREATE TABLE `users`
     `chat_id` Uint64,
     `firstName` String,
     `lastName` String,
+    `sendingHour` Uint8,
     `subscribed` Bool,
     `username` String,
     PRIMARY KEY (`id`)
@@ -42,7 +43,7 @@ __If database connection will fail or variables will not set, bot will connect L
 2. Can send task hints if they are set.
 3. Can send task difficulty.
 3. Subscribe/Unsubscribe user buttons/commands.
-4. Once per day reminder serverless function send new task to all users who subscribed. Reminder require `SENDING_TOKEN` environment variable with Telegram API token.
+4. Once per hour reminder serverless function send new task to all users who subscribed for this hour. Reminder require `SENDING_TOKEN` environment variable with Telegram API token.
 And it's all on the current stage.
 
 Plan to add:
@@ -52,17 +53,19 @@ Plan to add:
 Most likely it's a proof of concept. Only recieving of tasks if coded for now.
 Example:
 ```go
+package main
+
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/pkg/leetcodeclient"
 )
 
 func main() {
 	leetcodeClient := leetcodeclient.NewLeetCodeGraphQlClient()
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("UTC")
 	now := time.Date(2021, time.September, 26, 0, 0, 0, 0, loc)
 	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(5))
 	defer cancelFunc()

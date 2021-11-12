@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/bot"
+	"github.com/dartkron/leetcodeBot/v3/internal/bot"
 )
 
 // Handler for Yandex.Function requests

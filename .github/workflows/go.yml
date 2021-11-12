@@ -28,7 +28,7 @@ jobs:
       run: go test -coverprofile=c.out ./...
 
     - name: Post run
-      run: ./cc-test-reporter after-build format-coverage -t gocov --prefix github.com/dartkron/leetcodeBot/v2 .cover/c.out --exit-code $?
+      run: ./cc-test-reporter after-build format-coverage -t gocov --prefix github.com/dartkron/leetcodeBot/v3 .cover/c.out --exit-code $?
 
 
   tests:

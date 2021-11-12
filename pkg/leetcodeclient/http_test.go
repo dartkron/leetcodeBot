@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dartkron/leetcodeBot/v2/tests"
-	"github.com/dartkron/leetcodeBot/v2/tests/mocks"
+	"github.com/dartkron/leetcodeBot/v3/tests"
+	"github.com/dartkron/leetcodeBot/v3/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

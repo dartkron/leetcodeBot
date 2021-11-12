@@ -8,12 +8,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
-	"github.com/dartkron/leetcodeBot/v2/internal/storage"
-	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/internal/storage"
+	"github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient"
 )
 
 const (
@@ -26,13 +28,16 @@ List of available commands:
 	unsubscribedMessage = `%s, you have <strong>sucessfully unsubscribed</strong>. You'll not automatically recieve daily tasks.
 If you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues`
 
-	alreadyUnsubscribedMessage = "%s, you were <strong>not subscribed</strong>. No additonal actions required."
-	subcribedMessage           = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks when they appear."
-	alreadySubscribedMessage   = "%s, you have <strong>already subscribed</strong> for daily updates, nothing to do."
-	getActualDailyTaskCommand  = "Get actual daily task"
-	subscribeCommand           = "Subscribe"
-	unsubscribeCommand         = "Unsubscribe"
-	telegramAPIURL             = "https://api.telegram.org/bot%s/sendMessage"
+	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additonal actions required."
+	subcribedMessage               = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks when they appear."
+	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates, nothing to do."
+	getActualDailyTaskCommand      = "Get actual daily task"
+	getActualDailyTaskCommandSlash = "/getDailyTask"
+	subscribeCommand               = "Subscribe"
+	subscribeCommandSlash          = "/Subscribe"
+	unsubscribeCommand             = "Unsubscribe"
+	unsubscribeCommandSlash        = "/Unsubscribe"
+	telegramAPIURL                 = "https://api.telegram.org/bot%s/sendMessage"
 )
 
 // TelegramResponse is a short representation of fileds supported by Telegram
@@ -156,14 +161,22 @@ func (app *Application) processMessage(ctx context.Context, request TelegramRequ
 	}
 	response.ReplyMarkup = keyboard
 	switch command {
-	case getActualDailyTaskCommand, "/getDailyTask":
+	case getActualDailyTaskCommand, getActualDailyTaskCommandSlash:
 		err = app.getTaskAction(ctx, response)
-	case subscribeCommand, "/Subscribe":
-		err = app.subscribeAction(ctx, &request, response)
-	case unsubscribeCommand, "/Unsubscribe":
+	case subscribeCommand, subscribeCommandSlash:
+		err = app.printSubscribeDialog(ctx, response)
+	case unsubscribeCommand, unsubscribeCommandSlash:
 		err = app.unsubscribeAction(ctx, &request, response)
 	default:
-		response.Text = fmt.Sprintf(helpMessage, command)
+		splittedCommand := strings.Split(command, ":")
+		if len(splittedCommand) == 2 {
+			sendingHour, err2 := strconv.Atoi(splittedCommand[0])
+			if err2 == nil {
+				err = app.subscribeAction(ctx, &request, response, uint8(sendingHour))
+			}
+		} else {
+			response.Text = fmt.Sprintf(helpMessage, command)
+		}
 	}
 	return response, err
 
@@ -179,7 +192,15 @@ func (app *Application) getTaskAction(ctx context.Context, response *TelegramRes
 	return nil
 }
 
-func (app *Application) subscribeAction(ctx context.Context, request *TelegramRequest, response *TelegramResponse) error {
+func (app *Application) printSubscribeDialog(ctx context.Context, response *TelegramResponse) error {
+	response.Text = "Daily tasks appear each day at 00:00 UTC. For your convenience, this bot can send you tasks at the start of any hour of the day. " +
+		"Please, select a suitable hour to send a new daily task to you. The time zone is UTC."
+	keyboard, err := GetSubscribeHourdsKeyboard()
+	response.ReplyMarkup = keyboard
+	return err
+}
+
+func (app *Application) subscribeAction(ctx context.Context, request *TelegramRequest, response *TelegramResponse, sendingHour uint8) error {
 	user := common.User{
 		ID:        request.Message.From.ID,
 		ChatID:    request.Message.Chat.ID,
@@ -187,7 +208,7 @@ func (app *Application) subscribeAction(ctx context.Context, request *TelegramRe
 		FirstName: request.Message.From.FirstName,
 		LastName:  request.Message.From.LastName,
 	}
-	err := app.storageController.SubscribeUser(ctx, user)
+	err := app.storageController.SubscribeUser(ctx, user, sendingHour)
 	if err == storage.ErrUserAlreadySubscribed {
 		response.Text = fmt.Sprintf(alreadySubscribedMessage, user.FirstName)
 
@@ -302,7 +323,24 @@ func (app *Application) SendDailyTaskToSubscribedUsers(ctx context.Context) erro
 
 // GetMainKeyboard returns marshaled json for the main keyboard
 func GetMainKeyboard() (string, error) {
-	keyboard := KeyboardDef{
+	return keyboardToJSON(generateMainKeyboard())
+}
+
+// GetSubscribeHourdsKeyboard creates marshalled json with 24-hourds subscribe keyboard
+func GetSubscribeHourdsKeyboard() (string, error) {
+	return keyboardToJSON(generateSubscribeHourdsKeyboard())
+}
+
+func keyboardToJSON(keyboard KeyboardDef) (string, error) {
+	bytes, err := json.Marshal(keyboard)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), err
+}
+
+func generateMainKeyboard() KeyboardDef {
+	return KeyboardDef{
 		ResizeKeyboard:        true,
 		InputFieldPlaceholder: "Please, use buttons below:",
 		Keyboard: [][]Key{
@@ -310,11 +348,23 @@ func GetMainKeyboard() (string, error) {
 			{{Text: subscribeCommand}, {Text: unsubscribeCommand}},
 		},
 	}
-	bytes, err := json.Marshal(keyboard)
-	if err != nil {
-		return "", err
+}
+
+func generateSubscribeHourdsKeyboard() KeyboardDef {
+	keys := [][]Key{}
+	rowsNum := 4
+	buttonsInLine := 24 / rowsNum
+	for row := 0; row < rowsNum; row++ {
+		keys = append(keys, []Key{})
+		for hour := row * buttonsInLine; hour < (row+1)*buttonsInLine; hour++ {
+			keys[row] = append(keys[row], Key{Text: strconv.Itoa(hour) + ":" + "00"})
+		}
 	}
-	return string(bytes), err
+	return KeyboardDef{
+		ResizeKeyboard:        true,
+		InputFieldPlaceholder: "Please, choose the sending hour below:",
+		Keyboard:              keys,
+	}
 }
 
 // NewApplication Application constructor with default values

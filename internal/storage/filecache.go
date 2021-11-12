@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
 )
 
 // fileCache is a tasksStockpile with local filesystem backend

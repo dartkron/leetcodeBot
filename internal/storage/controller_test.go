@@ -6,9 +6,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/dartkron/leetcodeBot/v2/internal/common"
-	"github.com/dartkron/leetcodeBot/v2/pkg/leetcodeclient"
-	"github.com/dartkron/leetcodeBot/v2/tests"
+	"github.com/dartkron/leetcodeBot/v3/internal/common"
+	"github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v3/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -117,7 +117,7 @@ func TestNotConfiguredStorage(t *testing.T) {
 	storageController.tasksDB = nil
 	storageController.usersDB = nil
 	assert.Equal(t, storageController.UnsubscribeUser(context.Background(), 3435), ErrNoActiveUsersStorage, "UnsubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
-	assert.Equal(t, storageController.SubscribeUser(context.Background(), common.User{}), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
+	assert.Equal(t, storageController.SubscribeUser(context.Background(), common.User{}, 7), ErrNoActiveUsersStorage, "SubscribeUser should return ErrNoActiveUsersStorage when users storage isn't set")
 	_, err := storageController.GetSubscribedUsers(context.Background(), 7)
 	assert.Equal(t, err, ErrNoActiveUsersStorage, "GetSubscribedUsers should return ErrNoActiveUsersStorage when users storage isn't set")
 	assert.Nil(t, storageController.SaveTask(context.Background(), common.BotLeetCodeTask{}), "Unexpected error from SaveTask with unconfigured storage")
@@ -408,7 +408,7 @@ func TestSubscribeUserNew(t *testing.T) {
 		LastName:   "1000lastname",
 		Subscribed: false,
 	}
-	err := storageController.SubscribeUser(context.Background(), newUser)
+	err := storageController.SubscribeUser(context.Background(), newUser, 7)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	newUser.Subscribed = true
 	assert.Equal(t, *usersStore.users[1000], newUser, "Stored user differ with the sent one")
@@ -421,7 +421,7 @@ func TestSubscribeUserOld(t *testing.T) {
 		usersDB: usersStore,
 	}
 	user := *usersStore.users[1124]
-	err := storageController.SubscribeUser(context.Background(), user)
+	err := storageController.SubscribeUser(context.Background(), user, 7)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = true
 	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
@@ -435,10 +435,10 @@ func TestSubscribeUserAlreadySubscribed(t *testing.T) {
 	}
 	usersStore.users[1124].Subscribed = true
 	userToSend := *usersStore.users[1124]
-	err := storageController.SubscribeUser(context.Background(), userToSend)
+	err := storageController.SubscribeUser(context.Background(), userToSend, 7)
 	assert.Equal(t, err, ErrUserAlreadySubscribed, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
-	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
+	assert.Equal(t, []string{"getUser 1124"}, usersStore.callsJournal, "Unexpected users store call list")
 }
 
 func TestSubscribeUserWithError(t *testing.T) {
@@ -448,10 +448,10 @@ func TestSubscribeUserWithError(t *testing.T) {
 	}
 	usersStore.IDToFail = 1124
 	userToSend := *usersStore.users[1124]
-	err := storageController.SubscribeUser(context.Background(), userToSend)
+	err := storageController.SubscribeUser(context.Background(), userToSend, 7)
 	assert.Equal(t, err, tests.ErrBypassTest, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
-	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124"}, "Unexpected users store call list")
+	assert.Equal(t, []string{"getUser 1124"}, usersStore.callsJournal, "Unexpected users store call list")
 }
 
 func TestUnsubscribeUserNew(t *testing.T) {
