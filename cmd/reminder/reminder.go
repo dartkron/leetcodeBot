@@ -6,7 +6,7 @@ import (
 	"github.com/dartkron/leetcodeBot/v3/internal/bot"
 )
 
-// Response type for simplyfied response
+// Response type for simplified response
 type Response struct {
 	StatusCode int         `json:"statusCode"`
 	Body       interface{} `json:"body"`

@@ -182,7 +182,7 @@ func TestGetTaskFromCache(t *testing.T) {
 	// Get task from cache
 	task, err := storageController.GetTask(context.Background(), 12345)
 	assert.Nil(t, err, "Unexpected GetTask error")
-	assert.Equal(t, task, cacheStorage.tasks[12345], "Recieved task differs with task in storage")
+	assert.Equal(t, task, cacheStorage.tasks[12345], "Received task differs with task in storage")
 	assert.Empty(t, DBStorage.callsJournal, "Datase shoudn't be called when task persists in the cache")
 	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12345"}, "Cache calls amount differ with expectations")
 }
@@ -192,10 +192,10 @@ func TestGetTaskFromDBMissedInCache(t *testing.T) {
 	// Get task from DB and check that it will be saved in cache
 	task, err := storageController.GetTask(context.Background(), 12346)
 	assert.Nil(t, err, "Unexpected GetTask error")
-	assert.Equal(t, task, DBStorage.tasks[12346], "Recieved task differs with task in storage")
+	assert.Equal(t, task, DBStorage.tasks[12346], "Received task differs with task in storage")
 	cacheTask, ok := cacheStorage.tasks[12346]
 	if assert.True(t, ok, "Returned task not saved to cache") {
-		assert.Equal(t, task, cacheTask, "Recieved task differs with task in cache")
+		assert.Equal(t, task, cacheTask, "Received task differs with task in cache")
 	}
 	assert.Equal(t, DBStorage.callsJournal, []string{"getTask 12346"}, "DB calls differ with expectations")
 	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12346", "saveTask 12346"}, "Cache calls differ with expectations")
@@ -208,7 +208,7 @@ func TestGetTaskFromDBWithBrokenCache(t *testing.T) {
 	originalCacheTask := cacheStorage.tasks[12345]
 	task, err := storageController.GetTask(context.Background(), 12345)
 	assert.Nil(t, err, "Unexpected GetTask error")
-	assert.Equal(t, task, DBStorage.tasks[12345], "Recieved task differs with task in storage")
+	assert.Equal(t, task, DBStorage.tasks[12345], "Received task differs with task in storage")
 	assert.Equal(t, originalCacheTask, cacheStorage.tasks[12345], "Task was updated in cache, but shouldn't")
 	assert.Equal(t, DBStorage.callsJournal, []string{"getTask 12345"}, "DB calls differ with expectations")
 	assert.Equal(t, cacheStorage.callsJournal, []string{"getTask 12345", "saveTask 12345"}, "Cache calls differ with expectations")

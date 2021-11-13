@@ -24,7 +24,7 @@ type inlineButton struct {
 	CallbackData string `json:"callback_data,omitempty"`
 }
 
-// CallbackType means type of CallbackData recieved from user or marshalled into inline buttons
+// CallbackType means type of CallbackData received from user or marshalled into inline buttons
 type CallbackType uint8
 
 const (

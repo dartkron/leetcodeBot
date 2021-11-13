@@ -619,7 +619,7 @@ func TestProcessRequestUnsubscribe(t *testing.T) {
 	assert.Nil(t, err, "Unexpected json.Marshal error")
 	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
 	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
-	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"TestUser, you have \\u003cstrong\\u003esucessfully unsubscribed\\u003c/strong\\u003e. You'll not automatically recieve daily tasks.\\nIf you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"Get actual daily task\\\"}],[{\\\"text\\\":\\\"Subscribe\\\"},{\\\"text\\\":\\\"Unsubscribe\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, use buttons below:\\\",\\\"resize_keyboard\\\":true}\"}"
+	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":1126,\"text\":\"TestUser, you have \\u003cstrong\\u003esuccessfully unsubscribed\\u003c/strong\\u003e. You'll not automatically receive daily tasks.\\nIf you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"Get actual daily task\\\"}],[{\\\"text\\\":\\\"Subscribe\\\"},{\\\"text\\\":\\\"Unsubscribe\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, use buttons below:\\\",\\\"resize_keyboard\\\":true}\"}"
 	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
 }
 

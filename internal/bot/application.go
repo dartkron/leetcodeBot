@@ -25,11 +25,11 @@ List of available commands:
 /Subscribe — start automatically sending of daily tasks
 /Unsubscribe — stop automatically sending of daily tasks`
 
-	unsubscribedMessage = `%s, you have <strong>sucessfully unsubscribed</strong>. You'll not automatically recieve daily tasks.
+	unsubscribedMessage = `%s, you have <strong>successfully unsubscribed</strong>. You'll not automatically receive daily tasks.
 If you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues`
 
-	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additonal actions required."
-	subcribedMessage               = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks every day at %d:00 UTC ."
+	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additional actions required."
+	subcribedMessage               = "%s, you have <strong>successfully subscribed</strong>. You'll automatically receive daily tasks every day at %d:00 UTC ."
 	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates at the same time, nothing to do."
 	getActualDailyTaskCommand      = "Get actual daily task"
 	getActualDailyTaskCommandSlash = "/getDailyTask"

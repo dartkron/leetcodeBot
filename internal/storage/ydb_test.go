@@ -157,7 +157,7 @@ func TestGetTaskYDBError(t *testing.T) {
 }
 
 // It's necessary while in database []string storing as string
-// and Difficutly is storing as uint8
+// and Difficulty is storing as uint8
 type databaseBotLeetcodeTask struct {
 	DateID     uint64
 	QuestionID uint64
