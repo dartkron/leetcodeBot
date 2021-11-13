@@ -352,7 +352,7 @@ func generateMainKeyboard() KeyboardDef {
 
 func generateSubscribeHourdsKeyboard() KeyboardDef {
 	keys := [][]Key{}
-	rowsNum := 4
+	rowsNum := 6
 	buttonsInLine := 24 / rowsNum
 	for row := 0; row < rowsNum; row++ {
 		keys = append(keys, []Key{})
