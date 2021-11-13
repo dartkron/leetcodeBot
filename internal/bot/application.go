@@ -30,7 +30,7 @@ If you've found this bot useless and have ideas of possible improvements, please
 
 	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additonal actions required."
 	subcribedMessage               = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks every day at %d:00 UTC ."
-	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates, nothing to do."
+	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates at the same time, nothing to do."
 	getActualDailyTaskCommand      = "Get actual daily task"
 	getActualDailyTaskCommandSlash = "/getDailyTask"
 	subscribeCommand               = "Subscribe"
