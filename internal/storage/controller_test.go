@@ -71,6 +71,7 @@ func (k *MockUsersStorekeeper) subscribeUser(ctx context.Context, userID uint64,
 	}
 	if user, ok := k.users[userID]; ok {
 		user.Subscribed = true
+		user.SendingHour = sendingHour
 	} else {
 		return ErrNoSuchUser
 	}
@@ -421,11 +422,12 @@ func TestSubscribeUserOld(t *testing.T) {
 		usersDB: usersStore,
 	}
 	user := *usersStore.users[1124]
-	err := storageController.SubscribeUser(context.Background(), user, 7)
+	user.SendingHour += 3
+	err := storageController.SubscribeUser(context.Background(), user, user.SendingHour)
 	assert.Nil(t, err, "Unexpected SubscribeUser error")
 	user.Subscribed = true
-	assert.Equal(t, *usersStore.users[1124], user, "Stored user differ with the sent one")
-	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", "subscribeUser 1124, sendingHour 7"}, "Unexpected users store call list")
+	assert.Equal(t, user, *usersStore.users[1124], "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", fmt.Sprintf("subscribeUser 1124, sendingHour %d", user.SendingHour)}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserAlreadySubscribed(t *testing.T) {
@@ -434,11 +436,27 @@ func TestSubscribeUserAlreadySubscribed(t *testing.T) {
 		usersDB: usersStore,
 	}
 	usersStore.users[1124].Subscribed = true
+	usersStore.users[1124].SendingHour = 7
 	userToSend := *usersStore.users[1124]
 	err := storageController.SubscribeUser(context.Background(), userToSend, 7)
 	assert.Equal(t, err, ErrUserAlreadySubscribed, "Unexpected SubscribeUser error")
 	assert.Equal(t, *usersStore.users[1124], userToSend, "Stored user differ with the sent one")
 	assert.Equal(t, []string{"getUser 1124"}, usersStore.callsJournal, "Unexpected users store call list")
+}
+
+func TestSubscribeUserOldForDifferentTime(t *testing.T) {
+	usersStore := getTestUsersStorekeeper()
+	storageController := YDBandFileCacheController{
+		usersDB: usersStore,
+	}
+	usersStore.users[1124].SendingHour = 6
+	user := *usersStore.users[1124]
+	err := storageController.SubscribeUser(context.Background(), user, 7)
+	assert.Nil(t, err, "Unexpected SubscribeUser error")
+	user.Subscribed = true
+	user.SendingHour = 7
+	assert.Equal(t, user, *usersStore.users[1124], "Stored user differ with the sent one")
+	assert.Equal(t, usersStore.callsJournal, []string{"getUser 1124", "subscribeUser 1124, sendingHour 7"}, "Unexpected users store call list")
 }
 
 func TestSubscribeUserWithError(t *testing.T) {

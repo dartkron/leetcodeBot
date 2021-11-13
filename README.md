@@ -60,7 +60,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dartkron/leetcodeBot/pkg/leetcodeclient"
+	"github.com/dartkron/leetcodeBot/v3/pkg/leetcodeclient"
 )
 
 func main() {

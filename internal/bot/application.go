@@ -29,7 +29,7 @@ List of available commands:
 If you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues`
 
 	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additonal actions required."
-	subcribedMessage               = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks when they appear."
+	subcribedMessage               = "%s, you have <strong>sucessfully subscribed</strong>. You'll automatically recieve daily tasks every day at %d:00 UTC ."
 	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates, nothing to do."
 	getActualDailyTaskCommand      = "Get actual daily task"
 	getActualDailyTaskCommandSlash = "/getDailyTask"
@@ -215,7 +215,7 @@ func (app *Application) subscribeAction(ctx context.Context, request *TelegramRe
 	} else if err != nil {
 		return err
 	} else {
-		response.Text = fmt.Sprintf(subcribedMessage, user.FirstName)
+		response.Text = fmt.Sprintf(subcribedMessage, user.FirstName, sendingHour)
 	}
 	return nil
 }

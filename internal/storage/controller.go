@@ -15,7 +15,7 @@ var ErrNoSuchTask = errors.New("no such task")
 var ErrNoSuchUser = errors.New("no such user")
 
 // ErrUserAlreadySubscribed when user already subscribed
-var ErrUserAlreadySubscribed = errors.New("the user is already subscribed, nothing to do")
+var ErrUserAlreadySubscribed = errors.New("the user is already subscribed for recieving daily tasks at same time, nothing to do")
 
 // ErrUserAlreadyUnsubscribed when user already unsubscribed or were newer subscribed before
 var ErrUserAlreadyUnsubscribed = errors.New("already unsubscribed, nothing to do")
@@ -133,7 +133,7 @@ func (s *YDBandFileCacheController) SubscribeUser(ctx context.Context, user comm
 		}
 		return err
 	}
-	if storedUser.Subscribed {
+	if storedUser.Subscribed && storedUser.SendingHour == sendingHour {
 		return ErrUserAlreadySubscribed
 	}
 	return s.usersDB.subscribeUser(ctx, user.ID, sendingHour)

@@ -421,7 +421,7 @@ func TestSubscribeAction(t *testing.T) {
 	userBeforeRequest.Subscribed = true
 	userBeforeRequest.SendingHour += 2
 	assert.Equal(t, userBeforeRequest, *storageController.users[1124], "Unexpected changes in stored user after subscribe action")
-	assert.Equal(t, fmt.Sprintf(subcribedMessage, request.Message.From.FirstName), response.Text, "Unexpected response text")
+	assert.Equal(t, fmt.Sprintf(subcribedMessage, request.Message.From.FirstName, userBeforeRequest.SendingHour), response.Text, "Unexpected response text")
 }
 
 func TestSubscribeActionAlreadySubscribed(t *testing.T) {
@@ -562,6 +562,19 @@ func TestProcessRequestBodyHelp(t *testing.T) {
 	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
 	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
 	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":0,\"text\":\"You command \\\"My test request!\\\" isn't recognized =(\\nList of available commands:\\n/getDailyTask — get actual dailyTask\\n/Subscribe — start automatically sending of daily tasks\\n/Unsubscribe — stop automatically sending of daily tasks\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"Get actual daily task\\\"}],[{\\\"text\\\":\\\"Subscribe\\\"},{\\\"text\\\":\\\"Unsubscribe\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, use buttons below:\\\",\\\"resize_keyboard\\\":true}\"}"
+	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
+}
+
+func TestProcessSubscriveKeyboard(t *testing.T) {
+	_, _, _, app := getTestApp()
+	request := TelegramRequest{}
+	request.Message.From.ID = 6667
+	request.Message.Text = subscribeCommand
+	requestbytes, err := json.Marshal(request)
+	assert.Nil(t, err, "Unexpected json.Marshal error")
+	responseBytes, err := app.ProcessRequestBody(context.Background(), requestbytes)
+	assert.Nil(t, err, "Unexpected ProcessRequestBody error")
+	expectedResponse := "{\"method\":\"sendMessage\",\"parse_mode\":\"HTML\",\"chat_id\":0,\"text\":\"Daily tasks appear each day at 00:00 UTC. For your convenience, this bot can send you tasks at the start of any hour of the day. Please, select a suitable hour to send a new daily task to you. The time zone is UTC.\",\"reply_markup\":\"{\\\"keyboard\\\":[[{\\\"text\\\":\\\"0:00\\\"},{\\\"text\\\":\\\"1:00\\\"},{\\\"text\\\":\\\"2:00\\\"},{\\\"text\\\":\\\"3:00\\\"},{\\\"text\\\":\\\"4:00\\\"},{\\\"text\\\":\\\"5:00\\\"}],[{\\\"text\\\":\\\"6:00\\\"},{\\\"text\\\":\\\"7:00\\\"},{\\\"text\\\":\\\"8:00\\\"},{\\\"text\\\":\\\"9:00\\\"},{\\\"text\\\":\\\"10:00\\\"},{\\\"text\\\":\\\"11:00\\\"}],[{\\\"text\\\":\\\"12:00\\\"},{\\\"text\\\":\\\"13:00\\\"},{\\\"text\\\":\\\"14:00\\\"},{\\\"text\\\":\\\"15:00\\\"},{\\\"text\\\":\\\"16:00\\\"},{\\\"text\\\":\\\"17:00\\\"}],[{\\\"text\\\":\\\"18:00\\\"},{\\\"text\\\":\\\"19:00\\\"},{\\\"text\\\":\\\"20:00\\\"},{\\\"text\\\":\\\"21:00\\\"},{\\\"text\\\":\\\"22:00\\\"},{\\\"text\\\":\\\"23:00\\\"}]],\\\"input_field_placeholder\\\":\\\"Please, choose the sending hour below:\\\",\\\"resize_keyboard\\\":true}\"}"
 	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
 }
 
