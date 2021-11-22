@@ -45,6 +45,7 @@ func TestRemoveUnsuppotedTags(t *testing.T) {
 		"te<ul>st":               "test",
 		"te</ul>st":              "test",
 		"t<ul>e</ul>st":          "test",
+		"t<ol>e</ol>st":          "test",
 		"te<li>st":               "te — st",
 		"te</li>st":              "test",
 		"t<li>e</li>st":          "t — est",
