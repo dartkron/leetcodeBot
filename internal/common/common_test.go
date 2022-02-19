@@ -36,7 +36,7 @@ func TestGetDateId(t *testing.T) {
 	}
 }
 
-func TestRemoveUnsuppotedTags(t *testing.T) {
+func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 	cases := map[string]string{
 		"test":                   "test",
 		"te<p>st":                "test",
@@ -68,8 +68,38 @@ func TestRemoveUnsuppotedTags(t *testing.T) {
 		"t<br>e</br>st": "test",
 	}
 	for testCase, result := range cases {
-		calculatedResult := RemoveUnsupportedTags(testCase)
-		assert.Equal(t, calculatedResult, result, "Unexpected RemoveUnsupportedTags transformation")
+		calculatedResult := RemoveSimpleUnsupportedTags(testCase)
+		assert.Equal(t, result, calculatedResult, "Unexpected RemoveUnsupportedTags transformation")
+	}
+}
+
+func TestRemoveUnsuppotedTags(t *testing.T) {
+	cases := map[string]string{
+		"test": "test",
+		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notverycomplex</u>tests(withmessageInSpan",
+		"":    "",
+		"<p>": "",
+	}
+	for testCase, expectedResult := range cases {
+		assert.Equal(t, expectedResult, RemoveUnsupportedTags(testCase), "Unexpected RemoveUnsupportedTags transformation")
+	}
+}
+
+func TestReplaceComplexOpenTags(t *testing.T) {
+	cases := [][]string{
+		{"test", "span", "", "test"},
+		{"te<p>st", "span", "", "te<p>st"},
+		{"te</span>st", "span", "", "te</span>st"},
+		{"te<span>st", "span", "", "test"},
+		{"te<span test more params=\"test\">st", "span", "", "test"},
+		{"te<p>st", "p", "1", "te1st"},
+		{"te</span>st", "/span", "</span>", "te</span>st"},
+		{"te<span>st", "span", "123", "te123st"},
+		{"te<span test more params=\"test\">st", "span test", "ggg", "tegggst"},
+	}
+	for _, testCase := range cases {
+		calculatedResult := ReplaceComplexOpenTags(testCase[0], testCase[1], testCase[2])
+		assert.Equal(t, testCase[3], calculatedResult, "Unexpected ReplaceComplexOpenTags transformation")
 	}
 }
 

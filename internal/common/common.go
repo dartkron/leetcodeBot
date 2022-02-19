@@ -186,27 +186,34 @@ func GetDateID(date time.Time) uint64 {
 	return dateID
 }
 
-// RemoveUnsupportedTags remove from string all tags unsupported by Telegram and returns fixed string
+// RemoveUnsupportedTags shortcut for removing all unsopurted tags and returns fixed string
 func RemoveUnsupportedTags(source string) string {
+	source = RemoveSimpleUnsupportedTags(source)
+	return ReplaceComplexOpenTags(source, "span", "")
+}
+
+// RemoveSimpleUnsupportedTags remove from string all simple tags unsupported by Telegram and returns fixed string
+func RemoveSimpleUnsupportedTags(source string) string {
 	tagsToReplacement := map[string]string{
-		"<p>":    "",
-		"</p>":   "",
-		"<ol>":   "",
-		"</ol>":  "",
-		"<ul>":   "",
-		"</ul>":  "",
-		"</li>":  "",
-		"</sup>": "",
-		"<em>":   "",
-		"</em>":  "",
-		"\n\n":   "",
-		"<br>":   "",
-		"</br>":  "",
-		"&nbsp;": " ",
-		"<sup>":  "**",
-		"<sub>":  "(",
-		"</sub>": ")",
-		"<li>":   " — ",
+		"<p>":     "",
+		"</p>":    "",
+		"<ol>":    "",
+		"</ol>":   "",
+		"<ul>":    "",
+		"</ul>":   "",
+		"</li>":   "",
+		"</sup>":  "",
+		"<em>":    "",
+		"</em>":   "",
+		"\n\n":    "",
+		"<br>":    "",
+		"</br>":   "",
+		"&nbsp;":  " ",
+		"<sup>":   "**",
+		"<sub>":   "(",
+		"</sub>":  ")",
+		"<li>":    " — ",
+		"</span>": "",
 	}
 	for pattern, replacement := range tagsToReplacement {
 		source = strings.ReplaceAll(source, pattern, replacement)
@@ -224,6 +231,18 @@ func ReplaceImgTagWithA(source string) string {
 		urlEnd := strings.Index(source[start+urlStart+1:end], "\"")
 		url := source[start+urlStart : start+urlStart+1+urlEnd]
 		source = source[:start] + fmt.Sprintf("\n<a href=\"%s\">Picture %d</a>", url, i) + source[end:]
+	}
+	return source
+}
+
+// ReplaceComplexOpenTags replaces any complex open tag like <tagName * > with pattern
+func ReplaceComplexOpenTags(source string, tagName string, pattern string) string {
+	startTag := "<" + tagName
+	tagCount := strings.Count(source, startTag)
+	for i := 0; i < tagCount; i++ {
+		start := strings.Index(source, startTag)
+		end := start + strings.Index(source[start:], ">") + 1
+		source = source[:start] + pattern + source[end:]
 	}
 	return source
 }
