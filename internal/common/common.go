@@ -189,7 +189,8 @@ func GetDateID(date time.Time) uint64 {
 // RemoveUnsupportedTags shortcut for removing all unsopurted tags and returns fixed string
 func RemoveUnsupportedTags(source string) string {
 	source = RemoveSimpleUnsupportedTags(source)
-	return ReplaceComplexOpenTags(source, "span", "")
+	source = ReplaceComplexOpenTags(source, "span", "")
+	return ReplaceComplexOpenTags(source, "font", "")
 }
 
 // RemoveSimpleUnsupportedTags remove from string all simple tags unsupported by Telegram and returns fixed string
@@ -214,6 +215,7 @@ func RemoveSimpleUnsupportedTags(source string) string {
 		"</sub>":  ")",
 		"<li>":    " — ",
 		"</span>": "",
+		"</font>": "",
 	}
 	for pattern, replacement := range tagsToReplacement {
 		source = strings.ReplaceAll(source, pattern, replacement)
