@@ -39,9 +39,9 @@ func TestGetDateId(t *testing.T) {
 func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 	cases := map[string]string{
 		"test":                   "test",
-		"te<p>st":                "test",
-		"te</p>st":               "test",
-		"t<p>e</p>st":            "test",
+		"te<p>st":                "te\nst",
+		"te</p>st":               "te\nst",
+		"t<p>e</p>st":            "t\ne\nst",
 		"te<ul>st":               "test",
 		"te</ul>st":              "test",
 		"t<ul>e</ul>st":          "test",
@@ -60,9 +60,9 @@ func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 		"te<em>st":               "test",
 		"te</em>st":              "test",
 		"t<em>e</em>st":          "test",
-		"te\n\nst":               "test",
-		"t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt<br>t</br>e</strong>": "testt — es t**te(s)ttestte</strong>",
-		"<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n<br></br></strong>":                   " —  **()</strong>",
+		"te\n\nst":               "te\nst",
+		"t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt<br>t</br>e</strong>": "t\ne\nstt — es t**te(s)ttes\ntte</strong>",
+		"<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n<br></br></strong>":                   "\n\n —  **()\n</strong>",
 		"te<br>st":      "test",
 		"te</br>st":     "test",
 		"t<br>e</br>st": "test",
@@ -76,9 +76,9 @@ func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 func TestRemoveUnsuppotedTags(t *testing.T) {
 	cases := map[string]string{
 		"test": "test",
-		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notverycomplex</u>tests(withmessageInSpan",
+		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notvery\ncomplex</u>tests(withmessageInSpan\n",
 		"":    "",
-		"<p>": "",
+		"<p>": "\n",
 	}
 	for testCase, expectedResult := range cases {
 		assert.Equal(t, expectedResult, RemoveUnsupportedTags(testCase), "Unexpected RemoveUnsupportedTags transformation")
@@ -165,9 +165,9 @@ func TestFixTagsAndImages(t *testing.T) {
 	task.Content = "<ul> Test <img src=\"http://secret_image.com/image.png\"/>"
 	task.Hints = []string{"First </br>hint", "Second <ul>hint", "Third <li>hint"}
 	task.FixTagsAndImages()
-	assert.Equal(t, task.Title, "TestTitle", "Unexpected FixTagsAndImages transformation")
-	assert.Equal(t, task.Content, " Test \n<a href=\"http://secret_image.com/image.png\">Picture 0</a>", "Unexpected FixTagsAndImages transformation")
-	assert.Equal(t, task.Hints, []string{"First hint", "Second hint", "Third  — hint"}, "Unexpected FixTagsAndImages transformation")
+	assert.Equal(t, "TestTitle", task.Title, "Unexpected FixTagsAndImages transformation")
+	assert.Equal(t, " Test \n<a href=\"http://secret_image.com/image.png\">Picture 0</a>", task.Content, "Unexpected FixTagsAndImages transformation")
+	assert.Equal(t, []string{"First hint", "Second hint", "Third  — hint"}, task.Hints, "Unexpected FixTagsAndImages transformation")
 }
 
 func TestGetDifficultyNum(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -190,37 +191,46 @@ func GetDateID(date time.Time) uint64 {
 func RemoveUnsupportedTags(source string) string {
 	source = RemoveSimpleUnsupportedTags(source)
 	source = ReplaceComplexOpenTags(source, "span", "")
-	source = ReplaceComplexOpenTags(source, "div", "\n")
+	source = ReplaceComplexOpenTags(source, "div", "")
 	return ReplaceComplexOpenTags(source, "font", "")
 }
 
 // RemoveSimpleUnsupportedTags remove from string all simple tags unsupported by Telegram and returns fixed string
 func RemoveSimpleUnsupportedTags(source string) string {
 	tagsToReplacement := map[string]string{
-		"<p>":     "",
-		"</p>":    "",
-		"<ol>":    "",
-		"</ol>":   "",
-		"<ul>":    "",
-		"</ul>":   "",
-		"</li>":   "",
-		"</sup>":  "",
-		"<em>":    "",
-		"</em>":   "",
-		"\n\n":    "",
-		"<br>":    "",
-		"</br>":   "",
-		"&nbsp;":  " ",
-		"<sup>":   "**",
-		"<sub>":   "(",
-		"</sub>":  ")",
-		"<li>":    " — ",
-		"</span>": "",
-		"</font>": "",
-		"</div>":  "\n",
+		"<p>&nbsp;</p>": "\n",
+		"<p>":           "\n",
+		"</p>":          "\n",
+		"<ol>":          "",
+		"</ol>":         "",
+		"<ul>":          "",
+		"</ul>":         "",
+		"</li>":         "",
+		"</sup>":        "",
+		"<em>":          "",
+		"</em>":         "",
+		"\n\n":          "\n",
+		"<br>":          "",
+		"</br>":         "",
+		"&nbsp;":        " ",
+		"<sup>":         "**",
+		"<sub>":         "(",
+		"</sub>":        ")",
+		"<li>":          " — ",
+		"</span>":       "\n",
+		"</font>":       "",
+		"</div>":        "",
 	}
-	for pattern, replacement := range tagsToReplacement {
-		source = strings.ReplaceAll(source, pattern, replacement)
+	// In Golang map is truly unordered, so due to different order results were different
+	// The sorted order is always the same
+	keys := make([]string, len(tagsToReplacement))
+	for key := range tagsToReplacement {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		source = strings.ReplaceAll(source, key, tagsToReplacement[key])
 	}
 	return source
 }
