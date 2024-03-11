@@ -93,9 +93,12 @@ func TestReplaceComplexOpenTags(t *testing.T) {
 		{"te<span>st", "span", "", "test"},
 		{"te<span test more params=\"test\">st", "span", "", "test"},
 		{"te<p>st", "p", "1", "te1st"},
+		{"te<p>s<p style=\"test\">t", "p", "1", "te1s1t"},
 		{"te</span>st", "/span", "</span>", "te</span>st"},
 		{"te<span>st", "span", "123", "te123st"},
 		{"te<span test more params=\"test\">st", "span test", "ggg", "tegggst"},
+		{"te<div test more params=\"test\">st", "div", "ggg", "tegggst"},
+		{"te<div test more params=\"test\">s<div>t", "div", "ggg", "tegggsgggt"},
 	}
 	for _, testCase := range cases {
 		calculatedResult := ReplaceComplexOpenTags(testCase[0], testCase[1], testCase[2])
