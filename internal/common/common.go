@@ -190,7 +190,7 @@ func GetDateID(date time.Time) uint64 {
 func RemoveUnsupportedTags(source string) string {
 	source = RemoveSimpleUnsupportedTags(source)
 	source = ReplaceComplexOpenTags(source, "span", "")
-	source = ReplaceComplexOpenTags(source, "div", "")
+	source = ReplaceComplexOpenTags(source, "div", "\n")
 	return ReplaceComplexOpenTags(source, "font", "")
 }
 
@@ -217,7 +217,7 @@ func RemoveSimpleUnsupportedTags(source string) string {
 		"<li>":    " — ",
 		"</span>": "",
 		"</font>": "",
-		"</div>":  "",
+		"</div>":  "\n",
 	}
 	for pattern, replacement := range tagsToReplacement {
 		source = strings.ReplaceAll(source, pattern, replacement)
