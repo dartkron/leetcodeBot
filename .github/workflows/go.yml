@@ -45,19 +45,21 @@ jobs:
       run: go test -v ./...
 
   lint:
+    name: "Run static checks"
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-
-    - name: Set up Go
-      uses: actions/setup-go@v2
       with:
-        go-version: 1.17
-
-    - name: Lint
-      run: |
-        go get -u golang.org/x/lint/golint
-        golint -set_exit_status ./...
+        fetch-depth: 1
+    - uses: WillAbides/setup-go-faster@v1.7.0
+      with:
+        go-version: "1.19.x"
+    - run: "go test ./..."
+    - run: "go vet ./..."
+    - uses: dominikh/staticcheck-action@v1.2.0
+      with:
+        version: "2023.1.7"
+        install-go: false
 
   deploy:
     needs: [lint, tests]

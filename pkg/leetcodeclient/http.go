@@ -22,6 +22,9 @@ func (requester *httpGraphQlRequester) requestGraphQl(ctx context.Context, reque
 
 	req, _ := http.NewRequestWithContext(ctx, "POST", requester.GraphQlURL, bodyBuffer)
 	req.Header.Add("content-type", "application/json")
+	req.Header.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0")
+	req.Header.Add("x-csrftoken", "Lwf3m4FIFmw8a9u8RQ3u8vXQq7Zqra3aWfBJT8PvXAjhex3V8IQulH1EmXFmKEk8") // dartkron: This is a temporary solution, needs to be replaced with getCsrfToken() function
+	req.Header.Add("accept", "*/*")
 
 	response, err := requester.HTTPClient.Do(req)
 
