@@ -199,8 +199,8 @@ func RemoveUnsupportedTags(source string) string {
 func RemoveSimpleUnsupportedTags(source string) string {
 	tagsToReplacement := map[string]string{
 		"<p>&nbsp;</p>": "\n",
-		"<p>":           "\n",
-		"</p>":          "\n",
+		"<p>":           "",
+		"</p>":          "",
 		"<ol>":          "",
 		"</ol>":         "",
 		"<ul>":          "",

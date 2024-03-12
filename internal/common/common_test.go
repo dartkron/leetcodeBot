@@ -39,9 +39,9 @@ func TestGetDateId(t *testing.T) {
 func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 	cases := map[string]string{
 		"test":                   "test",
-		"te<p>st":                "te\nst",
-		"te</p>st":               "te\nst",
-		"t<p>e</p>st":            "t\ne\nst",
+		"te<p>st":                "test",
+		"te</p>st":               "test",
+		"t<p>e</p>st":            "test",
 		"te<ul>st":               "test",
 		"te</ul>st":              "test",
 		"t<ul>e</ul>st":          "test",
@@ -61,8 +61,8 @@ func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 		"te</em>st":              "test",
 		"t<em>e</em>st":          "test",
 		"te\n\nst":               "te\nst",
-		"t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt<br>t</br>e</strong>": "t\ne\nstt — es t**te(s)ttes\ntte</strong>",
-		"<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n<br></br></strong>":                   "\n\n —  **()\n</strong>",
+		"t<p>e</p>s<ul>t</ul>t<li>e</li>s&nbsp;t<sup>t</sup>e<sub>s</sub>tt<em>e</em>s\n\nt<br>t</br>e</strong>": "testt — es t**te(s)ttes\ntte</strong>",
+		"<p></p><ul></ul><li></li>&nbsp;<sup></sup><sub></sub><em></em>\n\n<br></br></strong>":                   " —  **()\n</strong>",
 		"te<br>st":      "test",
 		"te</br>st":     "test",
 		"t<br>e</br>st": "test",
@@ -76,9 +76,9 @@ func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 func TestRemoveUnsuppotedTags(t *testing.T) {
 	cases := map[string]string{
 		"test": "test",
-		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notvery\ncomplex</u>tests(withmessageInSpan\n",
+		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notverycomplex</u>tests(withmessageInSpan\n",
 		"":    "",
-		"<p>": "\n",
+		"<p>": "",
 	}
 	for testCase, expectedResult := range cases {
 		assert.Equal(t, expectedResult, RemoveUnsupportedTags(testCase), "Unexpected RemoveUnsupportedTags transformation")
