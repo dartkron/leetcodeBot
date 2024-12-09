@@ -38,7 +38,7 @@ func TestLeetcodeDateUnmarshal(t *testing.T) {
 	assert.Equal(t, "parsing time \"\" as \"2006-01-02\": cannot parse \"\" as \"2006\"", err.Error(), "Unexpected parse error")
 	err = testDate.UnmarshalJSON([]byte("1986-04-26"))
 	assert.Nil(t, err, "Unexprecred error")
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	assert.Equal(t, time.Date(1986, time.April, 26, 0, 0, 0, 0, loc), time.Time(testDate), "Unexpected date after parse")
 
 	err = testDate.UnmarshalJSON([]byte("2029-12-31"))
@@ -53,7 +53,7 @@ func TestGetMonthlyQuestionsSlugs(t *testing.T) {
 	client := NewLeetCodeGraphQlClient()
 	mockRequester := &MockRequester{}
 	client.transport = mockRequester
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	chaptersReq := client.getDailyQuestionsSlugsReq
 	chaptersReq.Variables = map[string]string{
 		"year":  "1986",
@@ -115,7 +115,7 @@ func TestGetDailyQuestionSlug(t *testing.T) {
 	client := NewLeetCodeGraphQlClient()
 	mockRequester := &MockRequester{}
 	client.transport = mockRequester
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	chaptersReq := client.getDailyQuestionsSlugsReq
 	chaptersReq.Variables = map[string]string{
 		"year":  "1986",
@@ -228,7 +228,7 @@ func TestGetDailyTask(t *testing.T) {
 	client := NewLeetCodeGraphQlClient()
 	mockRequester := &MockRequester{}
 	client.transport = mockRequester
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	chaptersReq := client.getDailyQuestionsSlugsReq
 	chaptersReq.Variables = map[string]string{
 		"year":  "1986",

@@ -31,7 +31,7 @@ type LeetcodeDate time.Time
 // UnmarshalJSON parsing date in format "2006-01-02" in json
 func (j *LeetcodeDate) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), "\"")
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	t, err := time.ParseInLocation("2006-01-02", s, loc)
 	if err != nil {
 		return err
@@ -141,8 +141,8 @@ func newLeetCodeGraphQlClient(requester graphQlRequester) *LeetCodeGraphQlClient
 	client := LeetCodeGraphQlClient{
 		getDailyQuestionsSlugsReq: graphQlRequest{
 			OperationName: "dailyCodingQuestionRecords",
-			Query: `query dailyCodingQuestionRecords($year: Int!, $month: Int!) { dailyCodingChallengeV2(year: $year, month: $month) { challenges {	date question { titleSlug } } } }`,
-			Variables: make(map[string]string),
+			Query:         `query dailyCodingQuestionRecords($year: Int!, $month: Int!) { dailyCodingChallengeV2(year: $year, month: $month) { challenges {	date question { titleSlug } } } }`,
+			Variables:     make(map[string]string),
 		},
 		getQuestionReq: graphQlRequest{
 			OperationName: "GetQuestion",
