@@ -24,7 +24,7 @@ type DateTestCase struct {
 }
 
 func TestGetDateId(t *testing.T) {
-	loc, _ := time.LoadLocation("US/Pacific")
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	testData := map[DateTestCase]uint64{
 		{1970, 1, 1}:   19700101,
 		{2021, 12, 31}: 20211231,
