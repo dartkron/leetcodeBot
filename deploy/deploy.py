@@ -40,7 +40,7 @@ def deployFunction(targetFunctionId: str, archiveName: str, slService, sdk) -> N
     
     createOperation = slService.CreateVersion(CreateFunctionVersionRequest(
             function_id=currentVersion.function_id,
-            runtime=currentVersion.runtime,
+            runtime="golang123",
             description=f'ref {githubRef} commit: {commitSha}',
             entrypoint=currentVersion.entrypoint,
             resources=currentVersion.resources,

@@ -8,28 +8,22 @@ on:
 
 jobs:
 
-  tests-coverage-reporter:
-    env:
-      CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+  sonarcloud:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Pre-run
-      run: |
-        curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
-        chmod +x ./cc-test-reporter
-        ./cc-test-reporter before-build
+      with:
+        fetch-depth: 0
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.17
-
+        go-version: "1.23"
     - name: Calculate test coverage
-      run: go test -coverprofile=c.out ./...
-
-    - name: Post run
-      run: ./cc-test-reporter after-build format-coverage -t gocov --prefix github.com/dartkron/leetcodeBot/v3 .cover/c.out --exit-code $?
-
+      run: go test -coverprofile=coverage.txt ./...
+    - uses: SonarSource/sonarcloud-github-action@ffc3010689be73b8e5ae0c57ce35968afd7909e8 # v5.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   tests:
     runs-on: ubuntu-latest
@@ -39,7 +33,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.17
+        go-version: "1.23"
 
     - name: Test
       run: go test -v ./...
@@ -53,12 +47,12 @@ jobs:
         fetch-depth: 1
     - uses: WillAbides/setup-go-faster@v1.14.0
       with:
-        go-version: "1.19.x"
+        go-version: "1.23.x"
     - run: "go test ./..."
     - run: "go vet ./..."
     - uses: dominikh/staticcheck-action@v1.3.0
       with:
-        version: "2023.1.7"
+        version: "2024.1.1"
         install-go: false
 
   deploy:
