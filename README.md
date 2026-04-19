@@ -1,5 +1,5 @@
-[![Maintainability](https://api.codeclimate.com/v1/badges/371cc101c86797eb2e70/maintainability)](https://codeclimate.com/github/dartkron/leetcodeBot/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/371cc101c86797eb2e70/test_coverage)](https://codeclimate.com/github/dartkron/leetcodeBot/test_coverage)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=dartkron_leetcodeBot&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=dartkron_leetcodeBot)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=dartkron_leetcodeBot&metric=coverage)](https://sonarcloud.io/summary/new_code?id=dartkron_leetcodeBot)
 # Telegram bot for Leetcode daily tasks
 **BOT URL**: https://t.me/MyLeetCodeDailybot
 
