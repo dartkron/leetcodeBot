@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockHTTPTRansport provides universal mock for http.Post function
-type MockHTTPTRansport struct {
+// MockHTTPTransport provides universal mock for http.Post function.
+type MockHTTPTransport struct {
 	mock.Mock
 }
 
-// RoundTrip doing fake transport
-func (m *MockHTTPTRansport) RoundTrip(r *http.Request) (*http.Response, error) {
+// RoundTrip provides fake transport behavior.
+func (m *MockHTTPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	request, err := io.ReadAll(r.Body)
 	url := r.URL.String()
 	headers := r.Header.Clone()
