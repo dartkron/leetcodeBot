@@ -21,6 +21,7 @@ CREATE TABLE `dailyQuestion`
     `questionId` Uint64,
     `title` String,
     `titleSlug` String,
+    `topicTags` String,
     PRIMARY KEY (`id`)
 );
 
@@ -40,12 +41,18 @@ CREATE TABLE `users`
 Awaits `YDB_DATABASE` and `YDB_ENDPOINT` environment variables.
 __If database connection will fail or variables will not set, bot will connect LeetCode API for question data.__
 
+For existing databases created before topic tags support, add the nullable column:
+```sql
+ALTER TABLE `dailyQuestion` ADD COLUMN `topicTags` String;
+```
+
 ## Features
 1. Can reply with today task.
 2. Can send task hints if they are set.
 3. Can send task difficulty.
-3. Subscribe/Unsubscribe user buttons/commands.
-4. Once per hour reminder serverless function send new task to all users who subscribed for this hour. Reminder require `SENDING_TOKEN` environment variable with Telegram API token.
+4. Can send task topics.
+5. Subscribe/Unsubscribe user buttons/commands.
+6. Once per hour reminder serverless function send new task to all users who subscribed for this hour. Reminder require `SENDING_TOKEN` environment variable with Telegram API token.
 And it's all on the current stage.
 
 Plan to add:

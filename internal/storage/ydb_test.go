@@ -103,15 +103,21 @@ func (m *YDBResultMock) Scan(values ...interface{}) error {
 	}
 	rowVal := reflect.ValueOf(m.rows[m.currentRow-1])
 	for i, fieldName := range m.respFields {
-		_, ok := rowVal.Type().FieldByNameFunc(func(name string) bool {
+		field, ok := rowVal.Type().FieldByNameFunc(func(name string) bool {
 			return name == fieldName
 		})
 		if !assert.Truef(m.t, ok, "Field %s not found in struct %s", fieldName, rowVal.Type().Name()) {
 			return errors.New("No such field in struct")
 		}
-		p := reflect.New(rowVal.FieldByName(fieldName).Type())
-		p.Elem().Set(rowVal.FieldByName(fieldName))
-		reflect.ValueOf(values[i]).Elem().Set(p)
+		fieldValue := rowVal.Field(field.Index[0])
+		dest := reflect.ValueOf(values[i]).Elem()
+		if fieldValue.Type().AssignableTo(dest.Type()) {
+			dest.Set(fieldValue)
+			continue
+		}
+		p := reflect.New(fieldValue.Type())
+		p.Elem().Set(fieldValue)
+		dest.Set(p)
 	}
 	return nil
 }
@@ -166,6 +172,18 @@ type databaseBotLeetcodeTask struct {
 	Content    string
 	Hints      string
 	Difficulty uint8
+	TopicTags  string
+}
+
+type databaseBotLeetcodeTaskWithNullTopicTags struct {
+	DateID     uint64
+	QuestionID uint64
+	TitleSlug  string
+	Title      string
+	Content    string
+	Hints      string
+	Difficulty uint8
+	TopicTags  *string
 }
 
 func (dbTask *databaseBotLeetcodeTask) fillFromBotLeetcode(task common.BotLeetCodeTask) error {
@@ -179,6 +197,11 @@ func (dbTask *databaseBotLeetcodeTask) fillFromBotLeetcode(task common.BotLeetCo
 		return err
 	}
 	dbTask.Hints = string(marshalledHints)
+	marshalledTopicTags, err := json.Marshal(task.TopicTags)
+	if err != nil {
+		return err
+	}
+	dbTask.TopicTags = string(marshalledTopicTags)
 	dbTask.Difficulty = task.GetDifficultyNum()
 	return nil
 }
@@ -197,6 +220,10 @@ func TestGetTaskYDB(t *testing.T) {
 			Content:    "My test context",
 			Hints:      []string{"First hint", "Second hint", "Third hint"},
 			Difficulty: "Easy",
+			TopicTags: []leetcodeclient.TopicTag{
+				{Name: "Array", Slug: "array"},
+				{Name: "Simulation", Slug: "simulation"},
+			},
 		},
 	}
 	dbTask := databaseBotLeetcodeTask{}
@@ -282,6 +309,94 @@ func TestGetTaskYDBBrokenJSON(t *testing.T) {
 		assert.Equal(t, tests.ErrWrongJSON.Error(), err.Error(), "Unexpected error")
 	}
 	assert.Equal(t, common.BotLeetCodeTask{}, resp, "Unexpected task returned")
+}
+
+func TestGetTaskYDBBrokenTopicTagsJSON(t *testing.T) {
+	storage := newYdbStorage()
+	mockExecuter := new(MockQueryExecuter)
+	mockExecuter.t = t
+	dateID := uint64(55674)
+	taskToLoad := common.BotLeetCodeTask{
+		DateID: dateID,
+		LeetCodeTask: leetcodeclient.LeetCodeTask{
+			QuestionID: 1235,
+			TitleSlug:  "very-very-test-slug",
+			Title:      "Very very test task",
+			Content:    "My test context",
+			Hints:      []string{"First hint", "Second hint", "Third hint"},
+			Difficulty: "Easy",
+			TopicTags:  []leetcodeclient.TopicTag{{Name: "Array", Slug: "array"}},
+		},
+	}
+	dbTask := databaseBotLeetcodeTask{}
+	dbTask.fillFromBotLeetcode(taskToLoad)
+	dbTask.TopicTags = "{\"}"
+	mockExecuter.On(
+		"ProcessQuery",
+		trimmQuery(getTaskQuery),
+		table.NewQueryParameters(
+			table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
+		).String(),
+	).Return(
+		&YDBResultMock{
+			rows: []interface{}{dbTask},
+			t:    t,
+		},
+		nil,
+	)
+	storage.ydbExecuter = mockExecuter
+	resp, err := storage.getTask(context.Background(), dateID)
+	if assert.NotNil(t, err, "Expect error on broken JSON") {
+		assert.Equal(t, tests.ErrWrongJSON.Error(), err.Error(), "Unexpected error")
+	}
+	assert.Equal(t, common.BotLeetCodeTask{}, resp, "Unexpected task returned")
+}
+
+func TestGetTaskYDBNullTopicTags(t *testing.T) {
+	storage := newYdbStorage()
+	mockExecuter := new(MockQueryExecuter)
+	mockExecuter.t = t
+	dateID := uint64(55674)
+	taskToLoad := common.BotLeetCodeTask{
+		DateID: dateID,
+		LeetCodeTask: leetcodeclient.LeetCodeTask{
+			QuestionID: 1235,
+			TitleSlug:  "very-very-test-slug",
+			Title:      "Very very test task",
+			Content:    "My test context",
+			Hints:      []string{"First hint", "Second hint", "Third hint"},
+			Difficulty: "Easy",
+		},
+	}
+	dbTask := databaseBotLeetcodeTask{}
+	dbTask.fillFromBotLeetcode(taskToLoad)
+	dbTaskWithNullTopicTags := databaseBotLeetcodeTaskWithNullTopicTags{
+		DateID:     dbTask.DateID,
+		QuestionID: dbTask.QuestionID,
+		TitleSlug:  dbTask.TitleSlug,
+		Title:      dbTask.Title,
+		Content:    dbTask.Content,
+		Hints:      dbTask.Hints,
+		Difficulty: dbTask.Difficulty,
+		TopicTags:  nil,
+	}
+	mockExecuter.On(
+		"ProcessQuery",
+		trimmQuery(getTaskQuery),
+		table.NewQueryParameters(
+			table.ValueParam("$dateId", ydb.Uint64Value(dateID)),
+		).String(),
+	).Return(
+		&YDBResultMock{
+			rows: []interface{}{dbTaskWithNullTopicTags},
+			t:    t,
+		},
+		nil,
+	)
+	storage.ydbExecuter = mockExecuter
+	resp, err := storage.getTask(context.Background(), dateID)
+	assert.Nil(t, err, "Unexpected error")
+	assert.Equal(t, taskToLoad, resp, "Unexpected task returned")
 }
 
 func TestGetTaskYDBScanError(t *testing.T) {

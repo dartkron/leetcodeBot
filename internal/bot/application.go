@@ -147,6 +147,16 @@ func (app *Application) processCallback(ctx context.Context, request TelegramReq
 		response.Text = fmt.Sprintf("Hint #%d: %s", callback.Hint+1, task.Hints[callback.Hint])
 	} else if callback.Type == common.DifficultyRequest {
 		response.Text = fmt.Sprintf("Task difficulty: %s", task.Difficulty)
+	} else if callback.Type == common.TopicTagsRequest {
+		if len(task.TopicTags) == 0 {
+			response.Text = fmt.Sprintf("There are no topics for task %d", callback.DateID)
+			return response, nil
+		}
+		topics := make([]string, len(task.TopicTags))
+		for i, tag := range task.TopicTags {
+			topics[i] = tag.Name
+		}
+		response.Text = fmt.Sprintf("Task topics: %s", strings.Join(topics, ", "))
 	}
 	return response, nil
 }

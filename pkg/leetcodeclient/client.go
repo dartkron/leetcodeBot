@@ -10,12 +10,19 @@ import (
 
 // LeetCodeTask is a necessary information about task at LeetCode
 type LeetCodeTask struct {
-	QuestionID uint64   `json:"questionId,string"`
-	TitleSlug  string   `json:"titleSlug"`
-	Title      string   `json:"questionTitle"`
-	Content    string   `json:"content"`
-	Hints      []string `json:"hints"`
-	Difficulty string   `json:"difficulty"`
+	QuestionID uint64     `json:"questionId,string"`
+	TitleSlug  string     `json:"titleSlug"`
+	Title      string     `json:"questionTitle"`
+	Content    string     `json:"content"`
+	Hints      []string   `json:"hints"`
+	Difficulty string     `json:"difficulty"`
+	TopicTags  []TopicTag `json:"topicTags,omitempty"`
+}
+
+// TopicTag is a LeetCode topic tag attached to a task.
+type TopicTag struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 // LeetcodeClient represents abstract set of methods required from any possible kind of Leetcode client
@@ -93,8 +100,10 @@ func (c *LeetCodeGraphQlClient) GetDailyQuestionSlug(ctx context.Context, date t
 
 func (c *LeetCodeGraphQlClient) getMonthlyQuestionsSlugs(ctx context.Context, date time.Time) ([]challengeDesc, error) {
 	monthlyQuestionsReq := c.getDailyQuestionsSlugsReq
-	monthlyQuestionsReq.Variables["month"] = fmt.Sprintf("%d", int(date.Month()))
-	monthlyQuestionsReq.Variables["year"] = fmt.Sprintf("%d", date.Year())
+	monthlyQuestionsReq.Variables = map[string]string{
+		"month": fmt.Sprintf("%d", int(date.Month())),
+		"year":  fmt.Sprintf("%d", date.Year()),
+	}
 	responseBytes, err := c.transport.requestGraphQl(ctx, monthlyQuestionsReq)
 	if err != nil {
 		return []challengeDesc{}, err
@@ -107,9 +116,9 @@ func (c *LeetCodeGraphQlClient) getMonthlyQuestionsSlugs(ctx context.Context, da
 // GetQuestionDetailsByTitleSlug provides all details of the question: title, text, hints, difficulty by provided titleSlug
 func (c *LeetCodeGraphQlClient) GetQuestionDetailsByTitleSlug(ctx context.Context, titleSlug string) (LeetCodeTask, error) {
 	questionReq := c.getQuestionReq
-	questionReq.Variables["titleSlug"] = titleSlug
+	questionReq.Variables = map[string]string{"titleSlug": titleSlug}
 
-	responseBytes, err := c.transport.requestGraphQl(ctx, c.getQuestionReq)
+	responseBytes, err := c.transport.requestGraphQl(ctx, questionReq)
 	if err != nil {
 		return LeetCodeTask{}, err
 	}
@@ -147,7 +156,7 @@ func newLeetCodeGraphQlClient(requester graphQlRequester) *LeetCodeGraphQlClient
 		getQuestionReq: graphQlRequest{
 			OperationName: "GetQuestion",
 			Variables:     make(map[string]string),
-			Query:         "query GetQuestion($titleSlug: String!) {question(titleSlug: $titleSlug) { questionId questionTitle difficulty content hints }}",
+			Query:         "query GetQuestion($titleSlug: String!) {question(titleSlug: $titleSlug) { questionId questionTitle difficulty content hints topicTags { name slug } }}",
 		},
 		transport: requester,
 	}
