@@ -57,7 +57,7 @@ Two tables, `dailyQuestion` and `users`, are expected to exist (see README.md). 
 - All outgoing messages use `parse_mode: HTML`, so content must be HTML-safe and use only Telegram's supported tag subset — go through `common.RemoveUnsupportedTags` / `FixTagsAndImages` rather than emitting tags directly.
 - User-visible commands are exact string matches. `/Subscribe 7` is not supported; `/Subscribe` only opens the hour keyboard, and the subsequent `H:00` text triggers subscription.
 - Main keyboard replies are JSON-encoded into `TelegramResponse.ReplyMarkup`; task hint/difficulty buttons use Telegram inline keyboards.
-- Callback payloads are JSON-encoded `common.CallbackData`; the keyboard builder in `common.GetInlineKeyboard` and the callback router in `Application.processCallback` must stay in sync on the `CallbackType` values (`HintReuqest`, `DifficultyRequest`).
+- Callback payloads are JSON-encoded `common.CallbackData`; the keyboard builder in `common.GetInlineKeyboard` and the callback router in `Application.processCallback` must stay in sync on the `CallbackType` values (`HintRequest`, `DifficultyRequest`).
 - Callback handling intentionally reads only from storage and does not fall back to the LeetCode API. That prevents arbitrary callback payloads from making the app fetch many historical tasks.
 - `SendDailyTaskToSubscribedUsers` selects users by the current UTC hour and sends messages concurrently. Individual send failures are logged after three attempts and do not fail the whole reminder run.
 

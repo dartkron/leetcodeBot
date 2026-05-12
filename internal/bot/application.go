@@ -29,7 +29,7 @@ List of available commands:
 If you've found this bot useless and have ideas of possible improvements, please, add them to https://github.com/dartkron/leetcodeBot/issues`
 
 	alreadyUnsubscribedMessage     = "%s, you were <strong>not subscribed</strong>. No additional actions required."
-	subcribedMessage               = "%s, you have <strong>successfully subscribed</strong>. You'll automatically receive daily tasks every day at %d:00 UTC ."
+	subscribedMessage              = "%s, you have <strong>successfully subscribed</strong>. You'll automatically receive daily tasks every day at %d:00 UTC ."
 	alreadySubscribedMessage       = "%s, you have <strong>already subscribed</strong> for daily updates at the same time, nothing to do."
 	getActualDailyTaskCommand      = "Get actual daily task"
 	getActualDailyTaskCommandSlash = "/getDailyTask"
@@ -40,7 +40,7 @@ If you've found this bot useless and have ideas of possible improvements, please
 	telegramAPIURL                 = "https://api.telegram.org/bot%s/sendMessage"
 )
 
-// TelegramResponse is a short representation of fileds supported by Telegram
+// TelegramResponse is a short representation of fields supported by Telegram.
 type TelegramResponse struct {
 	Method      string `json:"method"`
 	ParseMode   string `json:"parse_mode"`
@@ -72,7 +72,7 @@ type TelegramRequest struct {
 }
 
 // KeyboardDef is a representation of Telegram keyboard, don't confuse it with inline keyboard
-// Two dimensonal slice of Key: first dimension levels of keys and second is particular keys.
+// Two dimensional slice of Key: first dimension levels of keys and second is particular keys.
 // So you can have different amount of keys on every level
 type KeyboardDef struct {
 	Keyboard              [][]Key `json:"keyboard"`
@@ -85,7 +85,7 @@ type Key struct {
 	Text string `json:"text"`
 }
 
-// NewTelegramResponse TelegramResponse constructor with filling basic fileds
+// NewTelegramResponse is a TelegramResponse constructor with basic fields.
 func NewTelegramResponse() *TelegramResponse {
 	return &TelegramResponse{
 		Method:    "sendMessage",
@@ -93,7 +93,7 @@ func NewTelegramResponse() *TelegramResponse {
 	}
 }
 
-// Application holder for dependicies for easy injection
+// Application holds dependencies for easy injection.
 type Application struct {
 	storageController storage.Controller
 	leetcodeAPIClient leetcodeclient.LeetcodeClient
@@ -139,7 +139,7 @@ func (app *Application) processCallback(ctx context.Context, request TelegramReq
 		}
 		return response, nil
 	}
-	if callback.Type == common.HintReuqest {
+	if callback.Type == common.HintRequest {
 		if callback.Hint > len(task.Hints)-1 {
 			response.Text = fmt.Sprintf("There is no such hint for task %d", callback.DateID)
 			return response, nil
@@ -225,7 +225,7 @@ func (app *Application) subscribeAction(ctx context.Context, request *TelegramRe
 	} else if err != nil {
 		return err
 	} else {
-		response.Text = fmt.Sprintf(subcribedMessage, user.FirstName, sendingHour)
+		response.Text = fmt.Sprintf(subscribedMessage, user.FirstName, sendingHour)
 	}
 	return nil
 }

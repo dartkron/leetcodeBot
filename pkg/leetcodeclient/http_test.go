@@ -20,7 +20,7 @@ type testRequest struct {
 }
 
 func TestRequestGraphQl(t *testing.T) {
-	httpTransportMock := &mocks.MockHTTPTRansport{}
+	httpTransportMock := &mocks.MockHTTPTransport{}
 	requester := newHTTPGraphQlRequester(&http.Client{Transport: httpTransportMock})
 
 	expected_headers := http.Header{

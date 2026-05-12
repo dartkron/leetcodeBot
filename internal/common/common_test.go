@@ -37,7 +37,7 @@ func TestGetDateId(t *testing.T) {
 	}
 }
 
-func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
+func TestRemoveSimpleUnsupportedTags(t *testing.T) {
 	cases := map[string]string{
 		"test":                   "test",
 		"te<p>st":                "test",
@@ -74,7 +74,7 @@ func TestRemoveSimpleUnsuppotedTags(t *testing.T) {
 	}
 }
 
-func TestRemoveUnsuppotedTags(t *testing.T) {
+func TestRemoveUnsupportedTags(t *testing.T) {
 	cases := map[string]string{
 		"test": "test",
 		"notvery<p>complex</u>tests<sub>with<span type=\"test\">messageInSpan</span>": "notverycomplex</u>tests(withmessageInSpan\n",
@@ -124,8 +124,8 @@ type callbackTestCase struct {
 
 func TestGetMarshalledCallbackData(t *testing.T) {
 	testCases := []callbackTestCase{
-		{dateID: 10, hintID: 22, dataType: HintReuqest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":22}"},
-		{dateID: 10, hintID: 0, dataType: HintReuqest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":0}"},
+		{dateID: 10, hintID: 22, dataType: HintRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":22}"},
+		{dateID: 10, hintID: 0, dataType: HintRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":0}"},
 		{dateID: 10, hintID: 22, dataType: DifficultyRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":1,\"hint\":0}"},
 		{dateID: 10, hintID: 22, dataType: TopicTagsRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":2,\"hint\":0}"},
 	}

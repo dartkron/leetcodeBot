@@ -125,8 +125,8 @@ func getTodaySendMessageString(chatID uint64) string {
 	return string(bytes)
 }
 
-func getTestApp() (*mocks.MockHTTPTRansport, *MockStorageController, *lcclientmocks.MockLeetcodeClient, *Application) {
-	httpTransportMock := &mocks.MockHTTPTRansport{}
+func getTestApp() (*mocks.MockHTTPTransport, *MockStorageController, *lcclientmocks.MockLeetcodeClient, *Application) {
+	httpTransportMock := &mocks.MockHTTPTransport{}
 	leetcodeClient := &lcclientmocks.MockLeetcodeClient{}
 	storageController := &MockStorageController{
 		tasks: map[uint64]*common.BotLeetCodeTask{},
@@ -417,7 +417,7 @@ func TestNewApplication(t *testing.T) {
 func TestSubscribeAction(t *testing.T) {
 	_, storageController, _, app := getTestApp()
 	userBeforeRequest := *storageController.users[1124]
-	assert.False(t, userBeforeRequest.Subscribed, "Before request user shouldn't be scubscribed")
+	assert.False(t, userBeforeRequest.Subscribed, "Before request user shouldn't be subscribed")
 	request := TelegramRequest{}
 	request.Message.From.ID = 1124
 	request.Message.Chat.ID = 1124
@@ -430,13 +430,13 @@ func TestSubscribeAction(t *testing.T) {
 	userBeforeRequest.Subscribed = true
 	userBeforeRequest.SendingHour += 2
 	assert.Equal(t, userBeforeRequest, *storageController.users[1124], "Unexpected changes in stored user after subscribe action")
-	assert.Equal(t, fmt.Sprintf(subcribedMessage, request.Message.From.FirstName, userBeforeRequest.SendingHour), response.Text, "Unexpected response text")
+	assert.Equal(t, fmt.Sprintf(subscribedMessage, request.Message.From.FirstName, userBeforeRequest.SendingHour), response.Text, "Unexpected response text")
 }
 
 func TestSubscribeActionAlreadySubscribed(t *testing.T) {
 	_, storageController, _, app := getTestApp()
 	userBeforeRequest := *storageController.users[1126]
-	assert.True(t, userBeforeRequest.Subscribed, "Before request user should be scubscribed")
+	assert.True(t, userBeforeRequest.Subscribed, "Before request user should be subscribed")
 	request := TelegramRequest{}
 	request.Message.From.ID = 1126
 	request.Message.Chat.ID = 1126
@@ -574,7 +574,7 @@ func TestProcessRequestBodyHelp(t *testing.T) {
 	assert.Equal(t, responseBytes, []byte(expectedResponse), "Unexprected response bytes")
 }
 
-func TestProcessSubscriveKeyboard(t *testing.T) {
+func TestProcessSubscribeKeyboard(t *testing.T) {
 	_, _, _, app := getTestApp()
 	request := TelegramRequest{}
 	request.Message.From.ID = 6667
@@ -718,7 +718,7 @@ func TestProcessRequestTaskHint(t *testing.T) {
 	}
 	request := TelegramRequest{}
 	request.CallbackQuery.From.ID = 1126
-	data, err := common.GetMarshalledCallbackData(todayTaskID, 1, common.HintReuqest)
+	data, err := common.GetMarshalledCallbackData(todayTaskID, 1, common.HintRequest)
 	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
 	request.CallbackQuery.Data = data
 	requestbytes, err := json.Marshal(request)
@@ -745,7 +745,7 @@ func TestProcessRequestTaskHintMoreThenExists(t *testing.T) {
 	}
 	request := TelegramRequest{}
 	request.CallbackQuery.From.ID = 1126
-	data, err := common.GetMarshalledCallbackData(taskID, 2, common.HintReuqest)
+	data, err := common.GetMarshalledCallbackData(taskID, 2, common.HintRequest)
 	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
 	request.CallbackQuery.Data = data
 	requestbytes, err := json.Marshal(request)
@@ -762,7 +762,7 @@ func TestProcessRequestTaskHintError(t *testing.T) {
 	storageController.failedTaskID = todayTaskID
 	request := TelegramRequest{}
 	request.CallbackQuery.From.ID = 1126
-	data, err := common.GetMarshalledCallbackData(todayTaskID, 2, common.HintReuqest)
+	data, err := common.GetMarshalledCallbackData(todayTaskID, 2, common.HintRequest)
 	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
 	request.CallbackQuery.Data = data
 	requestbytes, err := json.Marshal(request)
@@ -779,7 +779,7 @@ func TestProcessRequestTaskHintNoTask(t *testing.T) {
 	delete(storageController.tasks, todayTaskID)
 	request := TelegramRequest{}
 	request.CallbackQuery.From.ID = 1126
-	data, err := common.GetMarshalledCallbackData(todayTaskID, 2, common.HintReuqest)
+	data, err := common.GetMarshalledCallbackData(todayTaskID, 2, common.HintRequest)
 	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
 	request.CallbackQuery.Data = data
 	requestbytes, err := json.Marshal(request)

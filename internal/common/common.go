@@ -31,9 +31,9 @@ type inlineButton struct {
 type CallbackType uint8
 
 const (
-	// HintReuqest means callback is about hint, not difficulty
-	HintReuqest CallbackType = iota
-	// DifficultyRequest means that callback require only difficulty
+	// HintRequest means callback is about hint, not difficulty.
+	HintRequest CallbackType = iota
+	// DifficultyRequest means that callback requires only difficulty.
 	DifficultyRequest
 	// TopicTagsRequest means that callback requires task topic tags.
 	TopicTagsRequest
@@ -42,14 +42,14 @@ const (
 // ErrClosedContext universal error about closed context
 var ErrClosedContext error = errors.New("context closed during execution")
 
-// CallbackData stuct for unmarshal JSON in callbackRequests and marshal in inlineKeyboard building
+// CallbackData is used to unmarshal callback request JSON and marshal inline keyboard data.
 type CallbackData struct {
 	DateID uint64       `json:"dateID,string,omitempty"`
 	Type   CallbackType `json:"callback_type"`
 	Hint   int          `json:"hint"`
 }
 
-// BotLeetCodeTask is iternal LeetcodeTask representation with bot-related info: DateID
+// BotLeetCodeTask is internal LeetCodeTask representation with bot-related info: DateID.
 type BotLeetCodeTask struct {
 	leetcodeclient.LeetCodeTask
 	DateID uint64 `json:"dateID,string"`
@@ -66,15 +66,15 @@ type User struct {
 	SendingHour uint8
 }
 
-// GetTaskText returns task text representation to couple login into class(struct, of course struct)
+// GetTaskText returns task text representation.
 func (task *BotLeetCodeTask) GetTaskText() string {
 	return fmt.Sprintf("<strong>%s</strong>\n\n%s", task.Title, task.Content)
 }
 
-// GetMarshalledCallbackData shotcut to get ready data for callback
+// GetMarshalledCallbackData returns serialized callback data.
 func GetMarshalledCallbackData(dateID uint64, hintID int, dataType CallbackType) (string, error) {
 	callbackData := CallbackData{DateID: dateID, Type: dataType}
-	if dataType == HintReuqest {
+	if dataType == HintRequest {
 		callbackData.Hint = int(hintID)
 	}
 	callbackDataMarshaled, err := json.Marshal(callbackData)
@@ -86,7 +86,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	listOfHints := [][]inlineButton{{}}
 	level := 0
 	for i := range task.Hints {
-		callbackData, err := GetMarshalledCallbackData(task.DateID, i, HintReuqest)
+		callbackData, err := GetMarshalledCallbackData(task.DateID, i, HintRequest)
 		if err != nil {
 			fmt.Println(callbackDataMarshalErrorMessage, err)
 		}
@@ -144,7 +144,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 
 	inlineKeyboard, err := json.Marshal(map[string][][]inlineButton{"inline_keyboard": listOfHints})
 	if err != nil {
-		fmt.Println("Error during marshall inlineKeyboard:", err)
+		fmt.Println("Error during marshal inlineKeyboard:", err)
 	}
 	return string(inlineKeyboard)
 }
@@ -172,9 +172,9 @@ func (task *BotLeetCodeTask) GetDifficultyNum() uint8 {
 	}
 }
 
-// SetDifficultyFromNum set task difficulty from uint8 value
-func (task *BotLeetCodeTask) SetDifficultyFromNum(difficuty uint8) {
-	switch difficuty {
+// SetDifficultyFromNum sets task difficulty from uint8 value.
+func (task *BotLeetCodeTask) SetDifficultyFromNum(difficulty uint8) {
+	switch difficulty {
 	case easy:
 		task.Difficulty = "Easy"
 	case medium:
@@ -186,7 +186,7 @@ func (task *BotLeetCodeTask) SetDifficultyFromNum(difficuty uint8) {
 	}
 }
 
-// GetDateInRightTimeZone returns time in corrent time zone for Leetcode
+// GetDateInRightTimeZone returns time in the correct time zone for LeetCode.
 func GetDateInRightTimeZone() time.Time {
 	return time.Now().UTC()
 }
