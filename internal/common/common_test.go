@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -126,6 +127,7 @@ func TestGetMarshalledCallbackData(t *testing.T) {
 		{dateID: 10, hintID: 22, dataType: HintReuqest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":22}"},
 		{dateID: 10, hintID: 0, dataType: HintReuqest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":0,\"hint\":0}"},
 		{dateID: 10, hintID: 22, dataType: DifficultyRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":1,\"hint\":0}"},
+		{dateID: 10, hintID: 22, dataType: TopicTagsRequest, awaitingResult: "{\"dateID\":\"10\",\"callback_type\":2,\"hint\":0}"},
 	}
 	for _, testCase := range testCases {
 		result, err := GetMarshalledCallbackData(testCase.dateID, testCase.hintID, testCase.dataType)
@@ -155,8 +157,26 @@ func TestGetInlineKeyboard(t *testing.T) {
 		task.TitleSlug = testCase.TitleSlug
 		task.Hints = testCase.Hints
 		result := task.GetInlineKeyboard()
-		assert.Equal(t, result, testCase.awaitingResult, "Unexpected GetInlineKeyboard response")
+		assert.Equal(t, result, withTopicTagsButton(t, testCase.awaitingResult, testCase.DateID), "Unexpected GetInlineKeyboard response")
 	}
+}
+
+func withTopicTagsButton(t *testing.T, keyboard string, dateID uint64) string {
+	t.Helper()
+	parsed := map[string][][]inlineButton{}
+	err := json.Unmarshal([]byte(keyboard), &parsed)
+	assert.Nil(t, err, "Unexpected old keyboard JSON in test")
+	callbackData, err := GetMarshalledCallbackData(dateID, 0, TopicTagsRequest)
+	assert.Nil(t, err, "Unexpected GetMarshalledCallbackData error")
+	parsed["inline_keyboard"] = append(parsed["inline_keyboard"], []inlineButton{
+		{
+			Text:         "Hint: Get the topics of the task",
+			CallbackData: callbackData,
+		},
+	})
+	encoded, err := json.Marshal(parsed)
+	assert.Nil(t, err, "Unexpected keyboard JSON marshal error")
+	return string(encoded)
 }
 
 func TestFixTagsAndImages(t *testing.T) {

@@ -17,7 +17,7 @@ const (
 	getTaskQuery = `
 	DECLARE $dateId AS Uint64;
 
-	SELECT title, content, questionId, titleSlug, hints, difficulty
+	SELECT title, content, questionId, titleSlug, hints, difficulty, topicTags
 	FROM dailyQuestion
 	WHERE id = $dateId;
 	`
@@ -29,9 +29,10 @@ const (
 	DECLARE $content AS String;
 	DECLARE $hints AS String;
 	DECLARE $difficulty AS Uint8;
+	DECLARE $topicTags AS String;
 
-	REPLACE INTO dailyQuestion (id, questionId, titleSlug, title, content, hints, difficulty)
-	VALUES ($dateId, $questionId, $titleSlug, $title, $content, $hints, $difficulty);
+	REPLACE INTO dailyQuestion (id, questionId, titleSlug, title, content, hints, difficulty, topicTags)
+	VALUES ($dateId, $questionId, $titleSlug, $title, $content, $hints, $difficulty, $topicTags);
 	`
 	getUserQuery = `
 	DECLARE $id AS Uint64;
@@ -192,11 +193,12 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 		titleSlug  *string
 		hints      *string
 		difficulty *uint8
+		topicTags  *string
 	)
 
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
 
-	for res.NextResultSet(ctx, "title", "content", "questionId", "titleSlug", "hints", "difficulty") {
+	for res.NextResultSet(ctx, "title", "content", "questionId", "titleSlug", "hints", "difficulty", "topicTags") {
 		for res.NextRow() {
 			err = res.Scan(
 				&title,
@@ -205,6 +207,7 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 				&titleSlug,
 				&hints,
 				&difficulty,
+				&topicTags,
 			)
 			if err != nil {
 				break
@@ -217,6 +220,12 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 			err = json.Unmarshal([]byte(*hints), &returnValue.Hints)
 			if err != nil {
 				break
+			}
+			if topicTags != nil && *topicTags != "" {
+				err = json.Unmarshal([]byte(*topicTags), &returnValue.TopicTags)
+				if err != nil {
+					break
+				}
 			}
 		}
 		if err != nil {
@@ -231,6 +240,10 @@ func (y *ydbStorage) saveTask(ctx context.Context, task common.BotLeetCodeTask) 
 	if err != nil {
 		return err
 	}
+	marshalledTopicTags, err := json.Marshal(task.TopicTags)
+	if err != nil {
+		return err
+	}
 	_, err = y.ydbExecuter.ProcessQuery(ctx, replaceTaskQuery, table.NewQueryParameters(
 		table.ValueParam("$dateId", ydb.Uint64Value(task.DateID)),
 		table.ValueParam("$questionId", ydb.Uint64Value(task.QuestionID)),
@@ -239,6 +252,7 @@ func (y *ydbStorage) saveTask(ctx context.Context, task common.BotLeetCodeTask) 
 		table.ValueParam("$content", ydb.StringValue([]byte(task.Content))),
 		table.ValueParam("$hints", ydb.StringValue(marshalledHints)),
 		table.ValueParam("$difficulty", ydb.Uint8Value(task.GetDifficultyNum())),
+		table.ValueParam("$topicTags", ydb.StringValue(marshalledTopicTags)),
 	),
 	)
 	return err

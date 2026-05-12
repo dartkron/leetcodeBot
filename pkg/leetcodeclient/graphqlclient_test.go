@@ -168,31 +168,17 @@ func TestGetQuestionDetailsByTitleSlug(t *testing.T) {
 	client := NewLeetCodeGraphQlClient()
 	mockRequester := &MockRequester{}
 	client.transport = mockRequester
-	questionReq := client.getQuestionReq
-	questionReq.Variables["titleSlug"] = "test-title0"
-	mockRequester.On(
-		"requestGraphQl",
-		questionReq,
-	).Return(
-		[]byte{},
-		tests.ErrBypassTest,
-	).Times(1)
-	questionReq.Variables["titleSlug"] = "test-title"
-	mockRequester.On(
-		"requestGraphQl",
-		questionReq,
-	).Return(
-		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"]}}}"),
+	makeReq := func(slug string) graphQlRequest {
+		r := client.getQuestionReq
+		r.Variables = map[string]string{"titleSlug": slug}
+		return r
+	}
+	mockRequester.On("requestGraphQl", makeReq("test-title0")).Return([]byte{}, tests.ErrBypassTest).Times(1)
+	mockRequester.On("requestGraphQl", makeReq("test-title")).Return(
+		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"],\"topicTags\":[{\"name\":\"Array\",\"slug\":\"array\"},{\"name\":\"Simulation\",\"slug\":\"simulation\"}]}}}"),
 		nil,
 	).Times(1)
-	questionReq.Variables["titleSlug"] = "test-title1"
-	mockRequester.On(
-		"requestGraphQl",
-		questionReq,
-	).Return(
-		[]byte("{\"}"),
-		nil,
-	).Times(1)
+	mockRequester.On("requestGraphQl", makeReq("test-title1")).Return([]byte("{\""), nil).Times(1)
 
 	testCases := []sliceStringLeetcodeTaskError{
 		{"test-title0", LeetCodeTask{}, tests.ErrBypassTest},
@@ -203,6 +189,10 @@ func TestGetQuestionDetailsByTitleSlug(t *testing.T) {
 			Difficulty: "Easy",
 			Content:    "<p>My very test content <code>with code</code></p>\n\n",
 			Hints:      []string{"First hint", "Second hint"},
+			TopicTags: []TopicTag{
+				{Name: "Array", Slug: "array"},
+				{Name: "Simulation", Slug: "simulation"},
+			},
 		}, nil},
 		{"test-title1", LeetCodeTask{}, tests.ErrWrongJSON},
 	}
@@ -252,23 +242,16 @@ func TestGetDailyTask(t *testing.T) {
 		[]byte("{\"data\":{\"dailyCodingChallengeV2\":{\"challenges\":[{\"date\":\"1995-08-01\",\"question\":{\"titleSlug\":\"test-title\"}},{\"date\":\"1995-08-02\",\"question\":{\"titleSlug\":\"test-title2\"}},{\"date\":\"1995-08-03\",\"question\":{\"titleSlug\":\"test-title3\"}}]}}}"),
 		nil,
 	).Times(2)
-	questionReq := client.getQuestionReq
-	questionReq.Variables["titleSlug"] = "test-title2"
-	mockRequester.On(
-		"requestGraphQl",
-		questionReq,
-	).Return(
-		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"]}}}"),
+	makeQuestionReq := func(slug string) graphQlRequest {
+		r := client.getQuestionReq
+		r.Variables = map[string]string{"titleSlug": slug}
+		return r
+	}
+	mockRequester.On("requestGraphQl", makeQuestionReq("test-title2")).Return(
+		[]byte("{\"data\":{\"question\":{\"questionId\":\"1254\",\"questionTitle\":\"Test title\",\"difficulty\":\"Easy\",\"content\":\"<p>My very test content <code>with code</code></p>\\n\\n\",\"hints\":[\"First hint\",\"Second hint\"],\"topicTags\":[{\"name\":\"Array\",\"slug\":\"array\"},{\"name\":\"Simulation\",\"slug\":\"simulation\"}]}}}"),
 		nil,
 	).Times(1)
-	questionReq.Variables["titleSlug"] = "test-title3"
-	mockRequester.On(
-		"requestGraphQl",
-		questionReq,
-	).Return(
-		[]byte("{\"}"),
-		nil,
-	).Times(1)
+	mockRequester.On("requestGraphQl", makeQuestionReq("test-title3")).Return([]byte("{\""), nil).Times(1)
 	testCases := []sliceDateLeetcodeTaskError{
 		{time.Date(1986, time.April, 26, 01, 23, 47, 0, loc), LeetCodeTask{}, tests.ErrBypassTest},
 		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{
@@ -278,8 +261,12 @@ func TestGetDailyTask(t *testing.T) {
 			Difficulty: "Easy",
 			Content:    "<p>My very test content <code>with code</code></p>\n\n",
 			Hints:      []string{"First hint", "Second hint"},
+			TopicTags: []TopicTag{
+				{Name: "Array", Slug: "array"},
+				{Name: "Simulation", Slug: "simulation"},
+			},
 		}, nil},
-		{time.Date(1995, time.August, 2, 01, 23, 47, 0, loc), LeetCodeTask{}, tests.ErrWrongJSON},
+		{time.Date(1995, time.August, 3, 01, 23, 47, 0, loc), LeetCodeTask{}, tests.ErrWrongJSON},
 	}
 	for _, testCase := range testCases {
 		task, err := client.GetDailyTask(context.Background(), testCase.date)

@@ -33,6 +33,8 @@ const (
 	HintReuqest CallbackType = iota
 	// DifficultyRequest means that callback require only difficulty
 	DifficultyRequest
+	// TopicTagsRequest means that callback requires task topic tags.
+	TopicTagsRequest
 )
 
 // ErrClosedContext universal error about closed context
@@ -120,6 +122,20 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 			{
 				Text:         "Hint: Get the difficulty of the task",
 				CallbackData: getDifficultyCallbackData,
+			},
+		},
+	)
+
+	getTopicTagsCallbackData, err := GetMarshalledCallbackData(task.DateID, 0, TopicTagsRequest)
+	if err != nil {
+		fmt.Println("Got error on marshalling callback data:", err)
+	}
+	listOfHints = append(
+		listOfHints,
+		[]inlineButton{
+			{
+				Text:         "Hint: Get the topics of the task",
+				CallbackData: getTopicTagsCallbackData,
 			},
 		},
 	)
