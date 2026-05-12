@@ -19,6 +19,8 @@ const (
 	notSet
 )
 
+const callbackDataMarshalErrorMessage = "Got error on marshalling callback data:"
+
 type inlineButton struct {
 	Text         string `json:"text"`
 	URL          string `json:"url,omitempty"`
@@ -86,7 +88,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	for i := range task.Hints {
 		callbackData, err := GetMarshalledCallbackData(task.DateID, i, HintReuqest)
 		if err != nil {
-			fmt.Println("Got error on marshalling callback data:", err)
+			fmt.Println(callbackDataMarshalErrorMessage, err)
 		}
 
 		// 5 hints in the row
@@ -114,7 +116,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 	// Append difficulty hint to task inline keyboard
 	getDifficultyCallbackData, err := GetMarshalledCallbackData(task.DateID, 0, DifficultyRequest)
 	if err != nil {
-		fmt.Println("Got error on marshalling callback data:", err)
+		fmt.Println(callbackDataMarshalErrorMessage, err)
 	}
 	listOfHints = append(
 		listOfHints,
@@ -128,7 +130,7 @@ func (task *BotLeetCodeTask) GetInlineKeyboard() string {
 
 	getTopicTagsCallbackData, err := GetMarshalledCallbackData(task.DateID, 0, TopicTagsRequest)
 	if err != nil {
-		fmt.Println("Got error on marshalling callback data:", err)
+		fmt.Println(callbackDataMarshalErrorMessage, err)
 	}
 	listOfHints = append(
 		listOfHints,

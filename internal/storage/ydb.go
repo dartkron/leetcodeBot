@@ -99,6 +99,16 @@ type ydbStorage struct {
 	ydbExecuter queryExecuter
 }
 
+type databaseTaskRow struct {
+	title      *string
+	content    *string
+	questionID *uint64
+	titleSlug  *string
+	hints      *string
+	difficulty *uint8
+	topicTags  *string
+}
+
 var initializedExecuter *ydbQueryExecuter
 var executerInitOnce sync.Once
 
@@ -186,46 +196,17 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 		return common.BotLeetCodeTask{}, ErrNoSuchTask
 	}
 
-	var (
-		title      *string
-		content    *string
-		questionID *uint64
-		titleSlug  *string
-		hints      *string
-		difficulty *uint8
-		topicTags  *string
-	)
-
 	returnValue := common.BotLeetCodeTask{DateID: dateID}
-
 	for res.NextResultSet(ctx, "title", "content", "questionId", "titleSlug", "hints", "difficulty", "topicTags") {
 		for res.NextRow() {
-			err = res.Scan(
-				&title,
-				&content,
-				&questionID,
-				&titleSlug,
-				&hints,
-				&difficulty,
-				&topicTags,
-			)
+			row := databaseTaskRow{}
+			err = res.Scan(row.scanDestinations()...)
 			if err != nil {
 				break
 			}
-			returnValue.Title = *title
-			returnValue.Content = *content
-			returnValue.QuestionID = *questionID
-			returnValue.TitleSlug = *titleSlug
-			returnValue.SetDifficultyFromNum(*difficulty)
-			err = json.Unmarshal([]byte(*hints), &returnValue.Hints)
+			returnValue, err = row.toBotLeetCodeTask(dateID)
 			if err != nil {
 				break
-			}
-			if topicTags != nil && *topicTags != "" {
-				err = json.Unmarshal([]byte(*topicTags), &returnValue.TopicTags)
-				if err != nil {
-					break
-				}
 			}
 		}
 		if err != nil {
@@ -233,6 +214,39 @@ func (y *ydbStorage) getTask(ctx context.Context, dateID uint64) (common.BotLeet
 		}
 	}
 	return returnValue, res.Err()
+}
+
+func (row *databaseTaskRow) scanDestinations() []interface{} {
+	return []interface{}{
+		&row.title,
+		&row.content,
+		&row.questionID,
+		&row.titleSlug,
+		&row.hints,
+		&row.difficulty,
+		&row.topicTags,
+	}
+}
+
+func (row *databaseTaskRow) toBotLeetCodeTask(dateID uint64) (common.BotLeetCodeTask, error) {
+	task := common.BotLeetCodeTask{DateID: dateID}
+	task.Title = *row.title
+	task.Content = *row.content
+	task.QuestionID = *row.questionID
+	task.TitleSlug = *row.titleSlug
+	task.SetDifficultyFromNum(*row.difficulty)
+
+	err := json.Unmarshal([]byte(*row.hints), &task.Hints)
+	if err != nil {
+		return common.BotLeetCodeTask{}, err
+	}
+	if row.topicTags != nil && *row.topicTags != "" {
+		err = json.Unmarshal([]byte(*row.topicTags), &task.TopicTags)
+		if err != nil {
+			return common.BotLeetCodeTask{}, err
+		}
+	}
+	return task, nil
 }
 
 func (y *ydbStorage) saveTask(ctx context.Context, task common.BotLeetCodeTask) error {
